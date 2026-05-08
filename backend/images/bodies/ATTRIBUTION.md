@@ -35,6 +35,8 @@ Additional moon texture sources used:
   - `jpegPIA18437.jpg` (Mimas)
   - `jpegPIA18438.jpg` (Rhea)
   - `jpegPIA18439.jpg` (Tethys)
+- User-provided local texture
+  - `titan_map_by_mapperpro_dfqh25n-pre.jpg` (Titan)
 
 Generated icons in this folder are derived from these textures via:
 

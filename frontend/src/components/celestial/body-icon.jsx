@@ -22,6 +22,7 @@ const BODY_ICON_FILE_BY_ID = Object.freeze({
     tethys: 'tethys-sphere-icon.png',
     dione: 'dione-sphere-icon.png',
     rhea: 'rhea-sphere-icon.png',
+    titan: 'titan-sphere-icon.png',
     iapetus: 'iapetus-sphere-icon.png',
     uranus: 'uranus-sphere-icon.png',
     neptune: 'neptune-sphere-icon.png',
@@ -35,6 +36,10 @@ const BODY_ICON_FILE_BY_ID = Object.freeze({
 const BODY_ALIASES = Object.freeze({
     sol: 'sun',
     luna: 'moon',
+    'saturn-vi': 'titan',
+    saturnvi: 'titan',
+    'naif-606': 'titan',
+    '606': 'titan',
 });
 
 const MISSION_ICON_FILE_BY_KEY = Object.freeze({

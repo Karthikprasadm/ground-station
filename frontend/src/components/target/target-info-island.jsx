@@ -64,6 +64,7 @@ import TransmittersDialog from "../satellites/transmitters-dialog.jsx";
 import SatelliteEditDialog from "../satellites/satellite-edit-dialog.jsx";
 import {fetchSatellite} from "./target-slice.jsx";
 import {useSocket} from "../common/socket.jsx";
+import BodyIcon from "../celestial/body-icon.jsx";
 import { targetIdentifierSelector, targetTypeSelector, trackingStateSelector } from "./state-selectors.jsx";
 import {
     buildTargetKeyFromTrackingState,
@@ -239,6 +240,11 @@ const TargetInfoIsland = () => {
     const nonSatelliteProjection = nonSatelliteTrack?.orbit_sampling || {};
     const nonSatelliteLastRefresh = monitoredTarget?.lastRefreshAt || monitoredTarget?.last_refresh_at || null;
     const nonSatelliteHasRealtime = Number.isFinite(nonSatelliteAzimuth) || Number.isFinite(nonSatelliteElevation);
+    const satelliteElevation = Number(satelliteData?.position?.el);
+    const satelliteVisible = Number.isFinite(satelliteElevation) ? satelliteElevation > 0 : null;
+    const satelliteVisibilityLabel = satelliteVisible === true
+        ? 'Visible'
+        : (satelliteVisible === false ? 'Below Horizon' : 'Unknown');
     const nonSatelliteStatusMeta = React.useMemo(() => {
         if (nonSatelliteError) {
             return {
@@ -611,15 +617,48 @@ const TargetInfoIsland = () => {
                             </Box>
                         </Box>
                     </Box>
-                    {satelliteData && satelliteData['details'] && (
-                        <Box sx={{ ml: 1 }}>
-                            {betterStatusValue(satelliteData['details']['status'])}
-                        </Box>
-                    )}
+                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+                        {satelliteData && satelliteData['details'] && (
+                            <Box>
+                                {betterStatusValue(satelliteData['details']['status'])}
+                            </Box>
+                        )}
+                        <Tooltip title="Satellite target">
+                            <Box
+                                sx={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: '50%',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    bgcolor: 'background.paper',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <SatelliteAltIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
+                            </Box>
+                        </Tooltip>
+                    </Box>
                 </Box>
 
                 <Grid container spacing={0.5}>
-                    <Grid size={hasOperator ? 6.5 : 9}>
+                    <Grid size={hasOperator ? 2.5 : 3}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
+                            {satelliteVisible === true ? (
+                                <CheckCircleIcon sx={{ fontSize: 11, mr: 0.4, color: 'success.main' }} />
+                            ) : satelliteVisible === false ? (
+                                <CancelIcon sx={{ fontSize: 11, mr: 0.4, color: 'warning.main' }} />
+                            ) : (
+                                <InfoOutlinedIcon sx={{ fontSize: 11, mr: 0.4, color: 'text.secondary' }} />
+                            )}
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }} noWrap>
+                                {satelliteVisibilityLabel}
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    <Grid size={hasOperator ? 4 : 6}>
                         <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
                             <AccessTimeIcon sx={{ fontSize: 11, mr: 0.4, color: 'text.secondary' }} />
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }} noWrap>
@@ -1190,67 +1229,90 @@ const TargetInfoIsland = () => {
                         borderBottom: '1px solid',
                         borderColor: 'border.main',
                     }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                                <Box sx={{
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: '50%',
-                                    mr: 1,
-                                    flexShrink: 0,
-                                    bgcolor: nonSatelliteStatusMeta.dotColor,
-                                    boxShadow: (theme) => `0 0 8px ${theme.palette[nonSatelliteStatusMeta.chipColor]?.main || theme.palette.text.secondary}`,
-                                }} />
-                                <Box sx={{ minWidth: 0, flex: 1 }}>
-                                    <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, letterSpacing: '0.3px' }}>
-                                        {nonSatelliteTargetName || '-'}
-                                        <Typography
-                                            component="span"
-                                            variant="caption"
-                                            sx={{ ml: 0.75, color: 'text.secondary', fontWeight: 500, fontSize: '0.7rem' }}
-                                        >
-                                            {targetType === 'mission'
-                                                ? (nonSatelliteIdentifier || '-')
-                                                : `Body ID · ${nonSatelliteIdentifier || '-'}`}
-                                        </Typography>
-                                    </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5 }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                        <Box sx={{
+                                            width: 10,
+                                            height: 10,
+                                            borderRadius: '50%',
+                                            mr: 1,
+                                            flexShrink: 0,
+                                            bgcolor: nonSatelliteStatusMeta.dotColor,
+                                            boxShadow: (theme) => `0 0 8px ${theme.palette[nonSatelliteStatusMeta.chipColor]?.main || theme.palette.text.secondary}`,
+                                        }} />
+                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, letterSpacing: '0.3px' }}>
+                                                {nonSatelliteTargetName || '-'}
+                                                <Typography
+                                                    component="span"
+                                                    variant="caption"
+                                                    sx={{ ml: 0.75, color: 'text.secondary', fontWeight: 500, fontSize: '0.7rem' }}
+                                                >
+                                                    {targetType === 'mission'
+                                                        ? (nonSatelliteIdentifier || '-')
+                                                        : `Body ID · ${nonSatelliteIdentifier || '-'}`}
+                                                </Typography>
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+
+                                <Grid container spacing={0.5}>
+                                    <Grid size={4}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
+                                            {nonSatelliteVisible === true ? (
+                                                <CheckCircleIcon sx={{ fontSize: 11, mr: 0.4, color: 'success.main' }} />
+                                            ) : nonSatelliteError ? (
+                                                <CancelIcon sx={{ fontSize: 11, mr: 0.4, color: 'error.main' }} />
+                                            ) : nonSatelliteVisible === false ? (
+                                                <CancelIcon sx={{ fontSize: 11, mr: 0.4, color: 'warning.main' }} />
+                                            ) : (
+                                                <InfoOutlinedIcon sx={{ fontSize: 11, mr: 0.4, color: 'text.secondary' }} />
+                                            )}
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }} noWrap>
+                                                {nonSatelliteStatusMeta.chipLabel}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={8}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
+                                            <AccessTimeIcon sx={{ fontSize: 11, mr: 0.4, color: 'text.secondary' }} />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }} noWrap>
+                                                {nonSatellitePassInfo && nonSatelliteCountdown
+                                                    ? (nonSatellitePassInfo.type === 'active' ? `Pass ends in ${nonSatelliteCountdown}` : `Next pass in ${nonSatelliteCountdown}`)
+                                                    : 'No upcoming pass'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                            <Box
+                                sx={{
+                                    width: 64,
+                                    minWidth: 64,
+                                    borderRadius: 0.5,
+                                    bgcolor: 'overlay.main',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                }}
+                            >
+                                {targetType !== 'mission' && (
+                                    <TrackChangesIcon sx={{ fontSize: '1.35rem', color: 'text.secondary', opacity: 0.45 }} />
+                                )}
+                                <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <BodyIcon
+                                        targetType={targetType}
+                                        bodyId={nonSatelliteIdentifier}
+                                        size={44}
+                                        alt={nonSatelliteTargetName || 'Target'}
+                                    />
                                 </Box>
                             </Box>
-                            <Chip
-                                label={nonSatelliteStatusMeta.chipLabel}
-                                size="small"
-                                color={nonSatelliteStatusMeta.chipColor}
-                                sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700 }}
-                            />
                         </Box>
-
-                        <Grid container spacing={0.5}>
-                            <Grid size={4}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
-                                    <AccessTimeIcon sx={{ fontSize: 11, mr: 0.4, color: 'text.secondary' }} />
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }} noWrap>
-                                        {nonSatellitePassInfo && nonSatelliteCountdown
-                                            ? (nonSatellitePassInfo.type === 'active' ? `Pass ends in ${nonSatelliteCountdown}` : `Next pass in ${nonSatelliteCountdown}`)
-                                            : 'No upcoming pass'}
-                                    </Typography>
-                                </Box>
-                            </Grid>
-                            <Grid size={4}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
-                                    <BusinessIcon sx={{ fontSize: 11, mr: 0.4, color: 'text.secondary' }} />
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }} noWrap>
-                                        {nonSatelliteSource}
-                                    </Typography>
-                                </Box>
-                            </Grid>
-                            <Grid size={4}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', px: 0.5, py: 0.3, bgcolor: 'overlay.main', borderRadius: 0.5 }}>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
-                                        Cache: {nonSatelliteCache}
-                                    </Typography>
-                                </Box>
-                            </Grid>
-                        </Grid>
                     </Box>
 
                     <Box sx={{ pr: 1.5, pl: 1.5, pt: 1.5, pb: 1, flex: 1, overflow: 'auto' }}>
