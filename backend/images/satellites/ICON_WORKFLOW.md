@@ -39,3 +39,28 @@ Process all provided entries in one batch unless the user explicitly asks otherw
 
 - Prefer deterministic local image processing (background removal + trim + center-fit) so results are repeatable.
 - Replace an existing icon for a NORAD ID when a new source is explicitly provided.
+
+## Batch automation (no LLM calls)
+
+Use `backend/scripts/process_satellite_icons.py` for deterministic batch processing.
+
+Dry-run (report only, no writes):
+
+```bash
+cd backend
+./venv/bin/python scripts/process_satellite_icons.py
+```
+
+Apply changes to all NORAD-named source images:
+
+```bash
+cd backend
+./venv/bin/python scripts/process_satellite_icons.py --apply
+```
+
+Process only specific NORAD IDs:
+
+```bash
+cd backend
+./venv/bin/python scripts/process_satellite_icons.py --norad 43700 7530 --apply
+```
