@@ -31,3 +31,11 @@ Source imagery for satellite icon assets under this folder.
     - `64/43700.png`
     - `128/43700.png`
     - `256/43700.png`
+
+- `965.png` (OPS 6582 / TRANSIT 5B-5 icon source image)
+  - Source URL: https://commons.wikimedia.org/wiki/File:Navigational_Satellite%2C_Transit_5-A_-_DPLA_-_199a8ed1caff1623440a9c0725f12558.jpg (direct file: https://upload.wikimedia.org/wikipedia/commons/8/8d/Navigational_Satellite%2C_Transit_5-A_-_DPLA_-_199a8ed1caff1623440a9c0725f12558.jpg)
+  - Description: Transit-family navigation satellite silhouette image used as improved visual source for NORAD 965 icon assets
+  - Processing note: white background removed via edge-connected extraction, foreground tight-trimmed and center-fitted, then exported as transparent icon presets:
+    - `64/965.png`
+    - `128/965.png`
+    - `256/965.png`
