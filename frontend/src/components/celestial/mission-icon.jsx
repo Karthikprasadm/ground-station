@@ -1,14 +1,14 @@
 import React from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import { resolveBodyIconPath } from './icon-catalog.js';
+import { resolveMissionIconPath } from './icon-catalog.js';
 
-const BodyIcon = ({
-    bodyId = '',
+const MissionIcon = ({
+    missionKey = '',
     size = 24,
-    alt = 'body icon',
+    alt = 'mission icon',
     sx = {},
 }) => {
-    const path = resolveBodyIconPath(bodyId, size);
+    const path = resolveMissionIconPath(missionKey, size);
     const numericSize = Number(size);
     const iconSize = Number.isFinite(numericSize) ? numericSize : (size || 24);
     const [failed, setFailed] = React.useState(false);
@@ -63,8 +63,8 @@ const BodyIcon = ({
                     inset: 0,
                     width: '100%',
                     height: '100%',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
+                    borderRadius: 0,
+                    objectFit: 'contain',
                     opacity: loaded ? 1 : 0,
                     transition: 'opacity 120ms linear',
                 }}
@@ -73,4 +73,4 @@ const BodyIcon = ({
     );
 };
 
-export default React.memo(BodyIcon);
+export default React.memo(MissionIcon);

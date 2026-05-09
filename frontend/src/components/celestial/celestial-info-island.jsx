@@ -13,7 +13,7 @@ import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
 import { setRotator, setTrackerId, setTrackingStateInBackend } from '../target/target-slice.jsx';
 import { useTargetRotatorSelectionDialog } from '../target/use-target-rotator-selection-dialog.jsx';
 import { toast } from '../../utils/toast-with-timestamp.jsx';
-import BodyIcon from './body-icon.jsx';
+import TargetIcon from './target-icon.jsx';
 import { resolveTargetDisplayName } from '../target/celestial-target-utils.js';
 
 const AU_IN_KM = 149597870.7;
@@ -388,7 +388,7 @@ const CelestialInfoIsland = ({
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                                     <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <BodyIcon
+                                        <TargetIcon
                                             targetType={targetType}
                                             bodyId={targetIdentifier}
                                             size={44}

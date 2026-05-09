@@ -62,7 +62,8 @@ import TransmittersDialog from "../satellites/transmitters-dialog.jsx";
 import SatelliteEditDialog from "../satellites/satellite-edit-dialog.jsx";
 import {fetchSatellite} from "./target-slice.jsx";
 import {useSocket} from "../common/socket.jsx";
-import BodyIcon from "../celestial/body-icon.jsx";
+import TargetIcon from "../celestial/target-icon.jsx";
+import SatelliteIcon from "../celestial/satellite-icon.jsx";
 import { targetIdentifierSelector, targetTypeSelector, trackingStateSelector } from "./state-selectors.jsx";
 import {
     buildTargetKeyFromTrackingState,
@@ -506,7 +507,7 @@ const TargetInfoIsland = () => {
                 <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
                     <Box sx={{display: 'flex', alignItems: 'center'}}>
                         <Typography variant="subtitle2" sx={{fontWeight: 'bold'}}>
-                            {isSatelliteTarget ? t('satellite_info.title') : 'Target Info'}
+                            Target Info
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -647,9 +648,8 @@ const TargetInfoIsland = () => {
                             flexShrink: 0,
                         }}
                     >
-                        <BodyIcon
-                            targetType="satellite"
-                            bodyId={selectedNoradId}
+                        <SatelliteIcon
+                            satelliteId={selectedNoradId}
                             size="100%"
                             alt={selectedSatelliteName || 'Satellite'}
                             sx={{ position: 'absolute', inset: 0, margin: 'auto', width: '100%', height: '100%', objectFit: 'contain' }}
@@ -1304,11 +1304,8 @@ const TargetInfoIsland = () => {
                                     position: 'relative',
                                 }}
                             >
-                                {targetType !== 'mission' && (
-                                    <TrackChangesIcon sx={{ fontSize: '1.35rem', color: 'text.secondary', opacity: 0.45 }} />
-                                )}
                                 <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <BodyIcon
+                                    <TargetIcon
                                         targetType={targetType}
                                         bodyId={nonSatelliteIdentifier}
                                         size={44}

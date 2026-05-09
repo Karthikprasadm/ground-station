@@ -1,18 +1,27 @@
 import React from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import { resolveBodyIconPath } from './icon-catalog.js';
+import {
+    resolveSatelliteFallbackPath,
+    resolveSatelliteIconPath,
+} from './icon-catalog.js';
 
-const BodyIcon = ({
-    bodyId = '',
+const SatelliteIcon = ({
+    satelliteId = '',
+    noradId = '',
     size = 24,
-    alt = 'body icon',
+    alt = 'satellite icon',
     sx = {},
 }) => {
-    const path = resolveBodyIconPath(bodyId, size);
+    const resolvedId = satelliteId || noradId;
+    const primaryPath = resolveSatelliteIconPath(resolvedId, size);
+    const fallbackPath = resolveSatelliteFallbackPath(resolvedId);
     const numericSize = Number(size);
     const iconSize = Number.isFinite(numericSize) ? numericSize : (size || 24);
     const [failed, setFailed] = React.useState(false);
     const [loaded, setLoaded] = React.useState(false);
+    const [usingFallback, setUsingFallback] = React.useState(false);
+    const path = usingFallback ? fallbackPath : primaryPath;
+    const showImage = Boolean(path) && !failed;
     const spinnerSize = Number.isFinite(numericSize)
         ? Math.max(12, Math.min(24, Math.round(numericSize * 0.35)))
         : 18;
@@ -20,9 +29,10 @@ const BodyIcon = ({
     React.useEffect(() => {
         setFailed(false);
         setLoaded(false);
-    }, [path]);
+        setUsingFallback(false);
+    }, [primaryPath, fallbackPath]);
 
-    if (!path || failed) return null;
+    if (!showImage) return null;
 
     return (
         <Box
@@ -55,6 +65,12 @@ const BodyIcon = ({
                 loading="lazy"
                 onLoad={() => setLoaded(true)}
                 onError={() => {
+                    // Try normalized icon set first, then fallback to /satimages/{norad}.png.
+                    if (!usingFallback && fallbackPath && fallbackPath !== primaryPath) {
+                        setLoaded(false);
+                        setUsingFallback(true);
+                        return;
+                    }
                     setLoaded(false);
                     setFailed(true);
                 }}
@@ -63,8 +79,7 @@ const BodyIcon = ({
                     inset: 0,
                     width: '100%',
                     height: '100%',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
+                    objectFit: 'contain',
                     opacity: loaded ? 1 : 0,
                     transition: 'opacity 120ms linear',
                 }}
@@ -73,4 +88,4 @@ const BodyIcon = ({
     );
 };
 
-export default React.memo(BodyIcon);
+export default React.memo(SatelliteIcon);
