@@ -533,24 +533,28 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                     value="packets"
                     label={`PACKETS (${packetOutputCount})`}
                     sx={{
+                        '&.MuiTab-root': {
+                            fontSize: '0.68rem !important',
+                        },
                         minHeight: 30,
                         height: 30,
                         minWidth: 0,
                         px: 1.25,
                         py: 0.25,
-                        fontSize: '0.72rem',
                     }}
                 />
                 <AntTab
                     value="gnss"
                     label={`GNSS (${satelliteRows.length})`}
                     sx={{
+                        '&.MuiTab-root': {
+                            fontSize: '0.68rem !important',
+                        },
                         minHeight: 30,
                         height: 30,
                         minWidth: 0,
                         px: 1.25,
                         py: 0.25,
-                        fontSize: '0.72rem',
                     }}
                 />
             </AntTabs>
