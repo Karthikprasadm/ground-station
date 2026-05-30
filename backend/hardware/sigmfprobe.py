@@ -17,7 +17,12 @@
 import json
 import logging
 import os
-from pathlib import Path
+
+from common.pathguard import (
+    get_sigmf_allowed_roots,
+    resolve_sigmf_data_path,
+    resolve_sigmf_meta_path,
+)
 
 logger = logging.getLogger("sigmf-probe")
 
@@ -46,21 +51,8 @@ def probe_sigmf_recording(sdr_details):
 
     try:
         recording_path = sdr_details.get("recording_path", "")
-        if not recording_path:
-            raise ValueError("No recording_path provided")
-
-        # If recording_path is just a filename, resolve it to the recordings directory
-        if not recording_path.startswith("/") and not recording_path.startswith("."):
-            # Relative path - resolve to backend/data/recordings
-            backend_dir = Path(__file__).parent.parent  # Go up to backend/
-            recordings_dir = backend_dir / "data" / "recordings"
-            recording_path = str(recordings_dir / recording_path)
-
-        # Handle path with or without .sigmf-meta extension
-        if recording_path.endswith(".sigmf-meta"):
-            meta_path = Path(recording_path)
-        else:
-            meta_path = Path(f"{recording_path}.sigmf-meta")
+        allowed_roots = get_sigmf_allowed_roots()
+        meta_path = resolve_sigmf_meta_path(recording_path, allowed_roots=allowed_roots)
 
         if not meta_path.exists():
             raise FileNotFoundError(f"SigMF metadata file not found: {meta_path}")
@@ -85,8 +77,7 @@ def probe_sigmf_recording(sdr_details):
             )
 
         # Check if data file exists
-        base_name = str(meta_path).replace(".sigmf-meta", "")
-        data_path = Path(f"{base_name}.sigmf-data")
+        data_path = resolve_sigmf_data_path(meta_path, allowed_roots=allowed_roots)
 
         if not data_path.exists():
             raise FileNotFoundError(f"SigMF data file not found: {data_path}")

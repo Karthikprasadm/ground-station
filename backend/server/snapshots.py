@@ -5,14 +5,30 @@ This module handles saving waterfall display snapshots to disk.
 """
 
 import base64
-import os
 import re
 from datetime import datetime
+from pathlib import Path
 
 from common.logger import logger
+from common.pathguard import ensure_path_in_allowed_roots, get_snapshots_root
 
 
-def save_waterfall_snapshot(waterfall_image: str, snapshot_name: str = "") -> dict:
+def _validate_snapshot_name(snapshot_name: str) -> str:
+    candidate = (snapshot_name or "").strip()
+    if not candidate:
+        return "waterfall_snapshot"
+
+    # Snapshot names are user-controlled input; only allow a basename.
+    if Path(candidate).is_absolute():
+        raise ValueError("Invalid snapshot name: absolute paths are not allowed")
+    if ".." in candidate or "/" in candidate or "\\" in candidate:
+        raise ValueError("Invalid snapshot name: directory traversal is not allowed")
+    return candidate
+
+
+def save_waterfall_snapshot(
+    waterfall_image: str, snapshot_name: str = "", snapshots_root: Path | None = None
+) -> dict:
     """
     Save a waterfall snapshot image to disk.
 
@@ -36,20 +52,11 @@ def save_waterfall_snapshot(waterfall_image: str, snapshot_name: str = "") -> di
         time_str = now.strftime("%H%M%S")
         timestamp = f"{date}_{time_str}"
 
-        # Use default name if not provided
-        if not snapshot_name or not snapshot_name.strip():
-            snapshot_name = "waterfall_snapshot"
+        validated_name = _validate_snapshot_name(snapshot_name)
+        snapshot_name_with_timestamp = f"{validated_name}_{timestamp}"
 
-        # Append timestamp to snapshot name
-        snapshot_name_with_timestamp = f"{snapshot_name}_{timestamp}"
-
-        # Create snapshots directory if it doesn't exist
-        # Get the backend directory (2 levels up from this file)
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        snapshots_dir = os.path.join(backend_dir, "data", "snapshots")
-        os.makedirs(snapshots_dir, exist_ok=True)
-
-        snapshot_path = os.path.join(snapshots_dir, snapshot_name_with_timestamp)
+        snapshots_dir = (snapshots_root or get_snapshots_root()).resolve()
+        snapshots_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract base64 data from data URL
         # Format: data:image/png;base64,iVBORw0KG...
@@ -59,12 +66,14 @@ def save_waterfall_snapshot(waterfall_image: str, snapshot_name: str = "") -> di
             image_bytes = base64.b64decode(image_data)
 
             # Save the image
-            image_path = f"{snapshot_path}.png"
-            with open(image_path, "wb") as f:
+            image_path = ensure_path_in_allowed_roots(
+                (snapshots_dir / f"{snapshot_name_with_timestamp}.png"), [snapshots_dir]
+            )
+            with image_path.open("wb") as f:
                 f.write(image_bytes)
 
             logger.info(f"Saved waterfall snapshot: {image_path}")
-            return {"success": True, "snapshot_path": image_path}
+            return {"success": True, "snapshot_path": str(image_path)}
         else:
             raise Exception("Invalid waterfall image data URL format")
 

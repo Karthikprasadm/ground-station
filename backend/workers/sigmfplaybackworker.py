@@ -18,13 +18,17 @@ import json
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
 import psutil
 
 from common.iqsamples import require_complex64
+from common.pathguard import (
+    get_sigmf_allowed_roots,
+    resolve_sigmf_data_path,
+    resolve_sigmf_meta_path,
+)
 
 # Configure logging for the worker process
 logger = logging.getLogger("sigmf-playback")
@@ -80,24 +84,8 @@ def sigmf_playback_worker_process(
         # Track whether we have IQ consumers
         has_iq_consumers = iq_queue_fft is not None or iq_queue_demod is not None
 
-        # Parse recording path
-        if not recording_path:
-            raise ValueError("No recording_path provided in configuration")
-
-        # If recording_path is just a filename, resolve it to the recordings directory
-        if not recording_path.startswith("/") and not recording_path.startswith("."):
-            # Relative path - resolve to backend/data/recordings
-            backend_dir = Path(__file__).parent.parent  # Go up to backend/
-            recordings_dir = backend_dir / "data" / "recordings"
-            recording_path = str(recordings_dir / recording_path)
-
-        # Handle path with or without extension
-        if recording_path.endswith(".sigmf-meta"):
-            meta_path = Path(recording_path)
-        elif recording_path.endswith(".sigmf-data"):
-            meta_path = Path(recording_path.replace(".sigmf-data", ".sigmf-meta"))
-        else:
-            meta_path = Path(f"{recording_path}.sigmf-meta")
+        allowed_roots = get_sigmf_allowed_roots()
+        meta_path = resolve_sigmf_meta_path(recording_path, allowed_roots=allowed_roots)
 
         if not meta_path.exists():
             raise FileNotFoundError(f"SigMF metadata file not found: {meta_path}")
@@ -122,8 +110,7 @@ def sigmf_playback_worker_process(
             captures = [{"core:sample_start": 0, "core:frequency": 100e6}]
 
         # Open data file
-        base_name = str(meta_path).replace(".sigmf-meta", "")
-        data_path = Path(f"{base_name}.sigmf-data")
+        data_path = resolve_sigmf_data_path(meta_path, allowed_roots=allowed_roots)
 
         if not data_path.exists():
             raise FileNotFoundError(f"SigMF data file not found: {data_path}")

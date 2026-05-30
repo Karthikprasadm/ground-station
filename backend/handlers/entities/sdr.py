@@ -17,6 +17,7 @@ import asyncio
 from typing import Dict, Union
 
 import crud
+from common.pathguard import resolve_sigmf_meta_path
 from common.sdrconfig import SDRConfig
 from crud import fetch_all_preferences
 from db import AsyncSessionLocal
@@ -243,6 +244,10 @@ async def sdr_data_request_routing(sio, cmd, data, logger, client_id):
 
                 # Recording path for sigmfplayback
                 recording_path = data.get("recordingPath", "")
+                if sdr_id == "sigmf-playback" and recording_path:
+                    # SigMF playback supports user-selected recordings, but the
+                    # selected file must stay inside trusted recording roots.
+                    recording_path = str(resolve_sigmf_meta_path(recording_path))
 
                 # Optional SDR settings (SoapySDR-specific capabilities)
                 sdr_settings = data.get("sdrSettings", {})
