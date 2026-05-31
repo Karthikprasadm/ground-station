@@ -108,12 +108,12 @@ describe('app-settings-form', () => {
         };
 
         socketValue = {
-            emit: vi.fn((event, command, data, callback) => {
-                if (event === 'data_request' && command === 'get-app-config') {
+            emit: vi.fn((event, payload, callback) => {
+                if (event === 'api.call' && payload?.cmd === 'get-app-config') {
                     callback({ success: true, data: initialPayload });
                     return;
                 }
-                if (event === 'data_submission' && command === 'update-app-config') {
+                if (event === 'api.call' && payload?.cmd === 'update-app-config') {
                     callback({ success: true, data: updatedPayload });
                 }
             }),
@@ -136,10 +136,13 @@ describe('app-settings-form', () => {
         await screen.findByRole('button', { name: 'Open Maintenance' });
 
         const submissionCall = socketValue.emit.mock.calls.find(
-            (call) => call[0] === 'data_submission' && call[1] === 'update-app-config'
+            (call) => call[0] === 'api.call' && call[1]?.cmd === 'update-app-config'
         );
         expect(submissionCall).toBeTruthy();
-        expect(submissionCall[2]).toEqual({ values: { host: '127.0.0.1' } });
+        expect(submissionCall[1]).toEqual({
+            cmd: 'update-app-config',
+            data: { values: { host: '127.0.0.1' } },
+        });
         expect(toastSuccessMock).toHaveBeenCalled();
 
         fireEvent.click(screen.getByRole('button', { name: 'Open Maintenance' }));
@@ -150,12 +153,12 @@ describe('app-settings-form', () => {
         const initialPayload = buildPayload();
 
         socketValue = {
-            emit: vi.fn((event, command, data, callback) => {
-                if (event === 'data_request' && command === 'get-app-config') {
+            emit: vi.fn((event, payload, callback) => {
+                if (event === 'api.call' && payload?.cmd === 'get-app-config') {
                     callback({ success: true, data: initialPayload });
                     return;
                 }
-                if (event === 'data_submission' && command === 'update-app-config') {
+                if (event === 'api.call' && payload?.cmd === 'update-app-config') {
                     callback({
                         success: false,
                         error: 'One or more settings are invalid',
@@ -188,8 +191,8 @@ describe('app-settings-form', () => {
         const initialPayload = buildPayload({ portApplyMode: 'hot' });
 
         socketValue = {
-            emit: vi.fn((event, command, data, callback) => {
-                if (event === 'data_request' && command === 'get-app-config') {
+            emit: vi.fn((event, payload, callback) => {
+                if (event === 'api.call' && payload?.cmd === 'get-app-config') {
                     callback({ success: true, data: initialPayload });
                 }
             }),

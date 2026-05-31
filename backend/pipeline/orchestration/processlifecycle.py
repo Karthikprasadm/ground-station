@@ -32,8 +32,6 @@ from pipeline.streaming.iqbroadcaster import IQBroadcaster
 from vfos.state import VFOManager
 from workers.rtlsdrworker import rtlsdr_worker_process
 from workers.sigmfplaybackworker import sigmf_playback_worker_process
-from workers.soapysdrlocalworker import soapysdr_local_worker_process
-from workers.soapysdrremoteworker import soapysdr_remote_worker_process
 from workers.uhdworker import uhd_worker_process
 
 # Add setproctitle import for process naming
@@ -43,6 +41,22 @@ try:
     _HAS_SETPROCTITLE = True
 except ImportError:
     _HAS_SETPROCTITLE = False
+
+
+def _load_soapy_worker_process(connection_type):
+    """
+    Import SoapySDR workers lazily so unit-test collection does not fail when
+    optional SoapySDR Python bindings are not installed.
+    """
+    if connection_type == "soapysdrremote":
+        from workers.soapysdrremoteworker import soapysdr_remote_worker_process
+
+        return soapysdr_remote_worker_process
+    if connection_type == "soapysdrlocal":
+        from workers.soapysdrlocalworker import soapysdr_local_worker_process
+
+        return soapysdr_local_worker_process
+    raise ValueError(f"Unsupported SoapySDR connection type: {connection_type}")
 
 
 def _create_named_worker_process(worker_func, process_name, *args):
@@ -274,13 +288,13 @@ class ProcessLifecycleManager:
             port = sdr_device["port"]
             connection_type = "soapysdrremote"
             driver = sdr_device["driver"]
-            worker_process = soapysdr_remote_worker_process
+            worker_process = _load_soapy_worker_process(connection_type)
             process_name = f"Ground Station - SoapySDR-Remote-{sdr_id}"
 
         elif sdr_device["type"] == "soapysdrlocal":
             connection_type = "soapysdrlocal"
             driver = sdr_device["driver"]
-            worker_process = soapysdr_local_worker_process
+            worker_process = _load_soapy_worker_process(connection_type)
             process_name = f"Ground Station - SoapySDR-Local-{sdr_id}"
 
         elif sdr_device["type"] == "uhd":
