@@ -25,6 +25,10 @@ import {calculateElevationCurvesForPasses} from '../../utils/elevation-curve-cal
 
 const MAP_ENGINE_LEAFLET = 'leaflet';
 const MAP_ENGINE_MAPLIBRE = 'maplibre';
+const LEAFLET_MIN_ZOOM = 0;
+const MAPLIBRE_MIN_ZOOM = -6;
+const MAP_MAX_ZOOM = 10;
+const MAPLIBRE_TO_LEAFLET_ZOOM_OFFSET = 1;
 const MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS = new Set([
     'nasa_blue_marble_4326',
     'nasa_osm_land_mask_4326',
@@ -34,6 +38,36 @@ const MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS = new Set([
 const normalizeMapEngine = (mapEngine) => (
     mapEngine === MAP_ENGINE_MAPLIBRE ? MAP_ENGINE_MAPLIBRE : MAP_ENGINE_LEAFLET
 );
+
+const getMinZoomForEngine = (mapEngine) => (
+    normalizeMapEngine(mapEngine) === MAP_ENGINE_MAPLIBRE ? MAPLIBRE_MIN_ZOOM : LEAFLET_MIN_ZOOM
+);
+
+const clampMapZoomForEngine = (zoomLevel, mapEngine) => {
+    const parsedZoom = Number(zoomLevel);
+    const minZoom = getMinZoomForEngine(mapEngine);
+    if (!Number.isFinite(parsedZoom)) {
+        return minZoom;
+    }
+    return Math.min(MAP_MAX_ZOOM, Math.max(minZoom, parsedZoom));
+};
+
+const convertMapZoomForEngine = (zoomLevel, fromEngine, toEngine) => {
+    const normalizedFrom = normalizeMapEngine(fromEngine);
+    const normalizedTo = normalizeMapEngine(toEngine);
+    if (normalizedFrom === normalizedTo) {
+        return clampMapZoomForEngine(zoomLevel, normalizedTo);
+    }
+
+    const normalizedZoom = clampMapZoomForEngine(zoomLevel, normalizedFrom);
+    if (normalizedFrom === MAP_ENGINE_MAPLIBRE && normalizedTo === MAP_ENGINE_LEAFLET) {
+        return clampMapZoomForEngine(normalizedZoom + MAPLIBRE_TO_LEAFLET_ZOOM_OFFSET, normalizedTo);
+    }
+    if (normalizedFrom === MAP_ENGINE_LEAFLET && normalizedTo === MAP_ENGINE_MAPLIBRE) {
+        return clampMapZoomForEngine(normalizedZoom - MAPLIBRE_TO_LEAFLET_ZOOM_OFFSET, normalizedTo);
+    }
+    return normalizedZoom;
+};
 
 const resolveCompatibleTileLayerId = (tileLayerID, mapEngine) => {
     const normalizedMapEngine = normalizeMapEngine(mapEngine);
@@ -370,14 +404,16 @@ const overviewSlice = createSlice({
             state.orbitProjectionDuration = action.payload;
         },
         setMapEngine(state, action) {
-            state.mapEngine = normalizeMapEngine(action.payload);
+            const nextMapEngine = normalizeMapEngine(action.payload);
+            state.mapZoomLevel = convertMapZoomForEngine(state.mapZoomLevel, state.mapEngine, nextMapEngine);
+            state.mapEngine = nextMapEngine;
             state.tileLayerID = resolveCompatibleTileLayerId(state.tileLayerID, state.mapEngine);
         },
         setTileLayerID(state, action) {
             state.tileLayerID = resolveCompatibleTileLayerId(action.payload, state.mapEngine);
         },
         setMapZoomLevel(state, action) {
-            state.mapZoomLevel = action.payload;
+            state.mapZoomLevel = clampMapZoomForEngine(action.payload, state.mapEngine);
         },
         setSatelliteGroupId(state, action) {
             state.satelliteGroupId = action.payload;
@@ -555,6 +591,7 @@ const overviewSlice = createSlice({
                 // Handle null/undefined payload for first-time users
                 if (action.payload) {
                     const mapEngine = normalizeMapEngine(action.payload['mapEngine']);
+                    state.mapZoomLevel = convertMapZoomForEngine(state.mapZoomLevel, state.mapEngine, mapEngine);
                     state.mapEngine = mapEngine;
                     state.tileLayerID = resolveCompatibleTileLayerId(action.payload['tileLayerID'], mapEngine);
                     state.showPastOrbitPath = action.payload['showPastOrbitPath'];

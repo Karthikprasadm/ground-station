@@ -71,6 +71,7 @@ import {store} from '../common/store.jsx';
 import {CircularProgress, Backdrop} from '@mui/material';
 
 const viewSatelliteLimit = 100;
+const MAPLIBRE_MIN_ZOOM = -6;
 
 const DATE_LINE_GEOJSON = {
     type: 'FeatureCollection',
@@ -113,6 +114,17 @@ function latLonToLngLat(point) {
 
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return [lon, lat];
+}
+
+function normalizePathSegments(pathData) {
+    if (!Array.isArray(pathData) || pathData.length === 0) {
+        return [];
+    }
+    const firstEntry = pathData[0];
+    const looksSegmented = Array.isArray(firstEntry)
+        && firstEntry.length > 0
+        && (Array.isArray(firstEntry[0]) || (firstEntry[0] && typeof firstEntry[0] === 'object'));
+    return looksSegmented ? pathData : [pathData];
 }
 
 function projectTerminatorForMapLibre(points) {
@@ -560,30 +572,38 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     }, [satelliteUpdate]);
 
     const pastPathGeoJSON = useMemo(() => {
-        const coordinates = overlayData.pastPath.map(latLonToLngLat).filter(Boolean);
-        if (coordinates.length < 2) return emptyFeatureCollection();
-        return {
-            type: 'FeatureCollection',
-            features: [
-                {
+        const features = normalizePathSegments(overlayData.pastPath)
+            .map((segment) => {
+                const coordinates = segment.map(latLonToLngLat).filter(Boolean);
+                if (coordinates.length < 2) return null;
+                return {
                     type: 'Feature',
                     geometry: {type: 'LineString', coordinates},
-                },
-            ],
+                };
+            })
+            .filter(Boolean);
+        if (features.length === 0) return emptyFeatureCollection();
+        return {
+            type: 'FeatureCollection',
+            features,
         };
     }, [overlayData.pastPath]);
 
     const futurePathGeoJSON = useMemo(() => {
-        const coordinates = overlayData.futurePath.map(latLonToLngLat).filter(Boolean);
-        if (coordinates.length < 2) return emptyFeatureCollection();
-        return {
-            type: 'FeatureCollection',
-            features: [
-                {
+        const features = normalizePathSegments(overlayData.futurePath)
+            .map((segment) => {
+                const coordinates = segment.map(latLonToLngLat).filter(Boolean);
+                if (coordinates.length < 2) return null;
+                return {
                     type: 'Feature',
                     geometry: {type: 'LineString', coordinates},
-                },
-            ],
+                };
+            })
+            .filter(Boolean);
+        if (features.length === 0) return emptyFeatureCollection();
+        return {
+            type: 'FeatureCollection',
+            features,
         };
     }, [overlayData.futurePath]);
 
@@ -682,7 +702,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const handleZoomOut = () => {
         if (!liveMap) return;
         liveMap.easeTo({
-            zoom: Math.max(0, liveMap.getZoom() - 0.25),
+            zoom: Math.max(MAPLIBRE_MIN_ZOOM, liveMap.getZoom() - 0.25),
             duration: 120,
         });
     };
@@ -717,6 +737,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     width: '100%',
                     flex: 1,
                     minHeight: 0,
+                    '& .maplibregl-ctrl-attrib, & .maplibregl-ctrl-bottom-right': {
+                        display: 'none !important',
+                    },
                     '& .overview-maplibre-popup .maplibregl-popup-content, & .overview-maplibre-tracked-popup .maplibregl-popup-content': {
                         backgroundColor: theme.palette.error.dark,
                         color: theme.palette.text.primary,
@@ -754,13 +777,15 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     ref={mapRef}
                     mapLib={maplibregl}
                     mapStyle={mapStyle}
+                    attributionControl={false}
                     initialViewState={{longitude: 0, latitude: 0, zoom: mapZoomLevel}}
                     dragPan={false}
                     scrollZoom={false}
                     touchZoomRotate={false}
                     doubleClickZoom={false}
                     keyboard={false}
-                    minZoom={0}
+                    renderWorldCopies={false}
+                    minZoom={MAPLIBRE_MIN_ZOOM}
                     maxZoom={10}
                     onZoomEnd={(event) => handleSetMapZoomLevel(event?.viewState?.zoom ?? mapZoomLevel)}
                     onClick={(event) => {
@@ -917,8 +942,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
 
                     {overlayData.markers.map((marker) => {
                         const shouldShowPopup = showTooltip || marker.isSelected || marker.isTracked;
-                        const markerColor = marker.isVisible ? '#38bdf8' : '#64748b';
-                        const borderColor = marker.isTracked ? theme.palette.error.main : '#e0f2fe';
+                        const visibleMarkerBorderColor = marker.isTracked ? theme.palette.error.main : '#e0f2fe';
 
                         return (
                             <React.Fragment key={`overview-maplibre-marker-${marker.noradId}`}>
@@ -945,6 +969,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                                     longitude={marker.lon}
                                     latitude={marker.lat}
                                     anchor="center"
+                                    style={{cursor: 'pointer'}}
                                     onClick={(event) => {
                                         markerClickInProgressRef.current = true;
                                         event.preventDefault?.();
@@ -956,19 +981,44 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                                         }, 0);
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            width: 12,
-                                            height: 12,
-                                            background: markerColor,
-                                            border: `1px solid ${borderColor}`,
-                                            transform: 'rotate(45deg)',
-                                            opacity: marker.isVisible ? 1 : 0.6,
-                                            boxShadow: marker.isTracked
-                                                ? `0 0 0 1px ${theme.palette.error.main}`
-                                                : '0 0 0 1px rgba(0,0,0,0.45)',
-                                        }}
-                                    />
+                                    {marker.isVisible ? (
+                                        <div
+                                            style={{
+                                                width: 12,
+                                                height: 12,
+                                                background: '#38bdf8',
+                                                border: `1px solid ${visibleMarkerBorderColor}`,
+                                                transform: 'rotate(45deg)',
+                                                cursor: 'pointer',
+                                                boxShadow: marker.isTracked
+                                                    ? `0 0 0 1px ${theme.palette.error.main}`
+                                                    : '0 0 0 1px rgba(0,0,0,0.45)',
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                width: 20,
+                                                height: 20,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: 10,
+                                                    height: 10,
+                                                    borderRadius: '50%',
+                                                    background: '#38bdf8',
+                                                    border: '1px solid #e0f2fe',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 0 0 1px rgba(0,0,0,0.45), 0 0 5px rgba(56,189,248,0.45)',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                 </Marker>
 
                                 {shouldShowPopup ? (

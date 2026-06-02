@@ -67,6 +67,7 @@ import {
 
 const storageMapZoomValueKey = 'target-map-zoom-level';
 const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
+const MAPLIBRE_MIN_ZOOM = -6;
 
 const DATE_LINE_GEOJSON = {
     type: 'FeatureCollection',
@@ -94,11 +95,30 @@ const emptyFeatureCollection = () => ({
 });
 
 function latLonToLngLat(point) {
-    if (!Array.isArray(point) || point.length < 2) return null;
-    const lat = Number(point[0]);
-    const lon = Number(point[1]);
+    let lat;
+    let lon;
+    if (Array.isArray(point) && point.length >= 2) {
+        lat = Number(point[0]);
+        lon = Number(point[1]);
+    } else if (point && typeof point === 'object') {
+        lat = Number(point.lat);
+        lon = Number(point.lon ?? point.lng);
+    } else {
+        return null;
+    }
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return [lon, lat];
+}
+
+function normalizePathSegments(pathData) {
+    if (!Array.isArray(pathData) || pathData.length === 0) {
+        return [];
+    }
+    const firstEntry = pathData[0];
+    const looksSegmented = Array.isArray(firstEntry)
+        && firstEntry.length > 0
+        && (Array.isArray(firstEntry[0]) || (firstEntry[0] && typeof firstEntry[0] === 'object'));
+    return looksSegmented ? pathData : [pathData];
 }
 
 function projectTerminatorForMapLibre(points) {
@@ -329,30 +349,38 @@ const TargetMapMapLibreRenderer = () => {
     const gridGeoJSON = useMemo(() => buildGridGeoJSON(15, 15), []);
 
     const pastPathGeoJSON = useMemo(() => {
-        const coordinates = (Array.isArray(satellitePaths?.past) ? satellitePaths.past : [])
-            .map(latLonToLngLat)
+        const features = normalizePathSegments(Array.isArray(satellitePaths?.past) ? satellitePaths.past : [])
+            .map((segment) => {
+                const coordinates = segment.map(latLonToLngLat).filter(Boolean);
+                if (coordinates.length < 2) return null;
+                return {
+                    type: 'Feature',
+                    geometry: {type: 'LineString', coordinates},
+                };
+            })
             .filter(Boolean);
-        if (coordinates.length < 2) return emptyFeatureCollection();
+        if (features.length === 0) return emptyFeatureCollection();
         return {
             type: 'FeatureCollection',
-            features: [{
-                type: 'Feature',
-                geometry: {type: 'LineString', coordinates},
-            }],
+            features,
         };
     }, [satellitePaths?.past]);
 
     const futurePathGeoJSON = useMemo(() => {
-        const coordinates = (Array.isArray(satellitePaths?.future) ? satellitePaths.future : [])
-            .map(latLonToLngLat)
+        const features = normalizePathSegments(Array.isArray(satellitePaths?.future) ? satellitePaths.future : [])
+            .map((segment) => {
+                const coordinates = segment.map(latLonToLngLat).filter(Boolean);
+                if (coordinates.length < 2) return null;
+                return {
+                    type: 'Feature',
+                    geometry: {type: 'LineString', coordinates},
+                };
+            })
             .filter(Boolean);
-        if (coordinates.length < 2) return emptyFeatureCollection();
+        if (features.length === 0) return emptyFeatureCollection();
         return {
             type: 'FeatureCollection',
-            features: [{
-                type: 'Feature',
-                geometry: {type: 'LineString', coordinates},
-            }],
+            features,
         };
     }, [satellitePaths?.future]);
 
@@ -477,7 +505,7 @@ const TargetMapMapLibreRenderer = () => {
     const handleZoomOut = () => {
         if (!liveMap) return;
         liveMap.easeTo({
-            zoom: Math.max(0, liveMap.getZoom() - 0.25),
+            zoom: Math.max(MAPLIBRE_MIN_ZOOM, liveMap.getZoom() - 0.25),
             duration: 120,
         });
     };
@@ -530,6 +558,9 @@ const TargetMapMapLibreRenderer = () => {
                     flex: 1,
                     minHeight: 0,
                     position: 'relative',
+                    '& .maplibregl-ctrl-attrib, & .maplibregl-ctrl-bottom-right': {
+                        display: 'none !important',
+                    },
                     '& .target-maplibre-popup .maplibregl-popup-content': {
                         backgroundColor: theme.palette.error.dark,
                         color: theme.palette.text.primary,
@@ -556,6 +587,7 @@ const TargetMapMapLibreRenderer = () => {
                     ref={mapRef}
                     mapLib={maplibregl}
                     mapStyle={mapStyle}
+                    attributionControl={false}
                     initialViewState={{
                         longitude: hasSatellitePosition ? satelliteLon : 0,
                         latitude: hasSatellitePosition ? satelliteLat : 0,
@@ -566,7 +598,8 @@ const TargetMapMapLibreRenderer = () => {
                     touchZoomRotate={false}
                     doubleClickZoom={false}
                     keyboard={false}
-                    minZoom={0}
+                    renderWorldCopies={false}
+                    minZoom={MAPLIBRE_MIN_ZOOM}
                     maxZoom={10}
                     onZoomEnd={(event) => {
                         const zoom = event?.viewState?.zoom ?? mapZoomLevel;
