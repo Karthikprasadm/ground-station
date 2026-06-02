@@ -18,6 +18,7 @@ const TrackedSatelliteTooltip = styled(LeafletTooltip)(({ theme }) => ({
     backgroundColor: theme.palette.error.dark,
     borderRadius: theme.shape.borderRadius,
     borderColor: theme.palette.error.main,
+    whiteSpace: 'nowrap',
     zIndex: 1000,
     // Leaflet uses different triangle borders per direction class.
     '&.leaflet-tooltip-bottom::before': {

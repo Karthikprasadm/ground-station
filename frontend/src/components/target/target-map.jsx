@@ -118,6 +118,7 @@ const TrackedSatelliteTooltip = styled(LeafletTooltip)(({ theme }) => ({
     backgroundColor: theme.palette.error.dark,
     borderRadius: theme.shape.borderRadius,
     borderColor: theme.palette.error.main,
+    whiteSpace: 'nowrap',
     zIndex: 1000,
     // Keep the arrow color aligned with the active orientation class.
     '&.leaflet-tooltip-bottom::before': {

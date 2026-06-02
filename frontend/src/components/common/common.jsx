@@ -198,6 +198,7 @@ export const ThemedLeafletTooltip = styled(LeafletTooltip)(({ theme }) => ({
     backgroundColor: theme.palette.background.paper,
     borderRadius: theme.shape.borderRadius,
     borderColor: theme.palette.background.paper,
+    whiteSpace: 'nowrap',
     zIndex: 1000,
     // Leaflet uses directional pseudo-element borders for tooltip arrows.
     '&.leaflet-tooltip-bottom::before': {

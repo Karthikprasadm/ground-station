@@ -746,6 +746,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         border: `1px solid ${theme.palette.error.main}`,
                         boxShadow: theme.shadows[3],
                         borderRadius: `${theme.shape.borderRadius}px`,
+                        whiteSpace: 'nowrap',
                         padding: '6px 8px',
                     },
                     '& .overview-maplibre-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .overview-maplibre-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .overview-maplibre-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip': {

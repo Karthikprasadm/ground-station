@@ -567,6 +567,7 @@ const TargetMapMapLibreRenderer = () => {
                         border: `1px solid ${theme.palette.error.main}`,
                         boxShadow: theme.shadows[3],
                         borderRadius: `${theme.shape.borderRadius}px`,
+                        whiteSpace: 'nowrap',
                         padding: '6px 8px',
                     },
                     '& .target-maplibre-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .target-maplibre-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .target-maplibre-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip': {
