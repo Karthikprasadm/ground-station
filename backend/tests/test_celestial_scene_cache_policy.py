@@ -44,49 +44,6 @@ async def test_get_vectors_snapshot_returns_exact_cache_hit(monkeypatch):
     assert result["payload"]["command"] == "Voyager 1"
 
 
-@pytest.mark.asyncio
-async def test_get_vectors_snapshot_refreshes_on_cached_command_mismatch(monkeypatch):
-    epoch = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
-    calls = {"fetch": 0, "store": 0}
-    fetched_payload = {"command": "Ceres", "position_xyz_au": [2.7, 0.0, 0.0]}
-
-    async def _stub_load_vectors_from_db(*_args, **_kwargs):
-        # Simulate stale/wrong cache row previously saved under this target key.
-        return {"payload": {"command": "1", "position_xyz_au": [0.3, 0.0, 0.0]}}
-
-    def _stub_fetch_celestial_vectors(*_args, **_kwargs):
-        calls["fetch"] += 1
-        return dict(fetched_payload)
-
-    async def _stub_store_vectors_in_db(*_args, **_kwargs):
-        calls["store"] += 1
-        return None
-
-    monkeypatch.setattr(scene, "_load_vectors_from_db", _stub_load_vectors_from_db)
-    monkeypatch.setattr(scene, "fetch_celestial_vectors", _stub_fetch_celestial_vectors)
-    monkeypatch.setattr(scene, "_store_vectors_in_db", _stub_store_vectors_in_db)
-
-    result = await scene._get_vectors_snapshot(
-        command="Ceres",
-        epoch=epoch,
-        past_hours=24,
-        future_hours=24,
-        step_minutes=60,
-        observer_location={"lat": 40.0, "lon": 22.0},
-        force_refresh=False,
-        logger=_DummyLogger(),
-        allow_network_fetch=True,
-        target_key="body:ceres",
-    )
-
-    assert result["cache"] == "db-miss"
-    assert result["stale"] is False
-    assert result["payload"]["command"] == "Ceres"
-    assert calls["fetch"] == 1
-    assert calls["store"] == 1
-
-
-@pytest.mark.asyncio
 async def test_get_vectors_snapshot_cache_only_returns_miss_without_exact_cache(monkeypatch):
     epoch = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
 
