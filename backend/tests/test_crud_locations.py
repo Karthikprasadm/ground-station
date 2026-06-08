@@ -46,11 +46,11 @@ class TestLocationsCrud:
     async def test_add_location_home_is_upsert(self, db_session):
         first = await crud_locations.add_location(
             db_session,
-            {"name": "home", "lat": 37.9838, "lon": 23.7275, "alt": 145},
+            {"name": "home", "callsign": "SV1ABC", "lat": 37.9838, "lon": 23.7275, "alt": 145},
         )
         second = await crud_locations.add_location(
             db_session,
-            {"name": "home", "lat": 40.6401, "lon": 22.9444, "alt": 12},
+            {"name": "home", "callsign": "SV1XYZ", "lat": 40.6401, "lon": 22.9444, "alt": 12},
         )
 
         assert first["success"] is True
@@ -59,6 +59,7 @@ class TestLocationsCrud:
         assert float(second["data"]["lat"]) == pytest.approx(40.6401)
         assert float(second["data"]["lon"]) == pytest.approx(22.9444)
         assert int(second["data"]["alt"]) == 12
+        assert second["data"]["callsign"] == "SV1XYZ"
 
         all_locations = await crud_locations.fetch_all_locations(db_session)
         assert all_locations["success"] is True
@@ -98,7 +99,7 @@ class TestLocationHandlers:
 
         reply = await locations_handler.submit_location(
             None,
-            {"name": "home", "lat": 37.9838, "lon": 23.7275, "alt": 145},
+            {"name": "home", "callsign": "SV1ABC", "lat": 37.9838, "lon": 23.7275, "alt": 145},
             _Logger(),
             "sid-test",
         )
@@ -107,11 +108,12 @@ class TestLocationHandlers:
         assert isinstance(reply.get("data"), dict)
         assert reply["data"]["id"] is not None
         assert float(reply["data"]["lat"]) == pytest.approx(37.9838)
+        assert reply["data"]["callsign"] == "SV1ABC"
 
     async def test_edit_location_returns_updated_row(self, db_session, monkeypatch):
         added = await crud_locations.add_location(
             db_session,
-            {"name": "home", "lat": 37.9838, "lon": 23.7275, "alt": 145},
+            {"name": "home", "callsign": "SV1ABC", "lat": 37.9838, "lon": 23.7275, "alt": 145},
         )
         location_id = added["data"]["id"]
 
@@ -124,7 +126,14 @@ class TestLocationHandlers:
 
         reply = await locations_handler.edit_location(
             None,
-            {"id": location_id, "name": "home", "lat": 40.6401, "lon": 22.9444, "alt": 12},
+            {
+                "id": location_id,
+                "name": "home",
+                "callsign": "SV1XYZ",
+                "lat": 40.6401,
+                "lon": 22.9444,
+                "alt": 12,
+            },
             _Logger(),
             "sid-test",
         )
@@ -134,3 +143,4 @@ class TestLocationHandlers:
         assert reply["data"]["id"] == location_id
         assert float(reply["data"]["lat"]) == pytest.approx(40.6401)
         assert float(reply["data"]["lon"]) == pytest.approx(22.9444)
+        assert reply["data"]["callsign"] == "SV1XYZ"

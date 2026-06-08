@@ -73,6 +73,10 @@ async def add_location(session: AsyncSession, data: dict) -> dict:
         payload.pop("id", None)
         payload.pop("added", None)
         payload.pop("updated", None)
+        payload["name"] = str(payload.get("name") or "").strip() or "home"
+        if "callsign" in payload:
+            normalized_callsign = str(payload.get("callsign") or "").strip().upper()
+            payload["callsign"] = normalized_callsign or None
         location_name = str(payload.get("name") or "").strip().lower()
 
         # Frontend currently manages a single "home" location.
@@ -134,6 +138,12 @@ async def edit_location(session: AsyncSession, data: dict) -> dict:
             del data["added"]
         if data.get("updated", None) is not None:
             del data["updated"]
+
+        if "name" in data:
+            data["name"] = str(data.get("name") or "").strip() or "home"
+        if "callsign" in data:
+            normalized_callsign = str(data.get("callsign") or "").strip().upper()
+            data["callsign"] = normalized_callsign or None
 
         # Convert to UUID if it's a string
         if isinstance(location_id, str):

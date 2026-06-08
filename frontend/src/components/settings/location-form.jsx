@@ -119,6 +119,9 @@ function MapClickHandler({ onClick }) {
     return null;
 }
 
+const normalizeStationName = (value) => String(value || '').trim();
+const normalizeCallsign = (value) => String(value || '').trim().toUpperCase();
+
 const LocationPage = () => {
     const { socket } = useSocket();
     const dispatch = useDispatch();
@@ -145,10 +148,17 @@ const LocationPage = () => {
     } = useSelector((state) => state.location);
 
     const hasLocation = location && location.lat != null && location.lon != null;
+    const stationName = location?.name || '';
+    const stationCallsign = location?.callsign || '';
+    const stationLabel = normalizeStationName(stationName) || 'home';
+    const stationCallsignLabel = normalizeCallsign(stationCallsign);
     const normalizedLocation = React.useMemo(() => {
         if (!hasLocation) return null;
         return { lat: Number(location.lat), lon: Number(location.lon) };
     }, [hasLocation, location?.lat, location?.lon]);
+    const updateLocationState = React.useCallback((patch) => {
+        dispatch(setLocation({ ...(location || {}), ...patch }));
+    }, [dispatch, location]);
 
     const getNearestCity = async (lat, lon) => {
         try {
@@ -219,6 +229,8 @@ const LocationPage = () => {
                 lat: Number(location.lat),
                 lon: Number(location.lon),
                 altitude: Number(altitude || 0),
+                name: normalizeStationName(location.name || 'home'),
+                callsign: normalizeCallsign(location.callsign || ''),
                 locationId: locationId || null,
             });
         }
@@ -231,9 +243,11 @@ const LocationPage = () => {
         const latChanged = Math.abs(Number(location.lat) - savedState.lat) > 1e-7;
         const lonChanged = Math.abs(Number(location.lon) - savedState.lon) > 1e-7;
         const altitudeChanged = Number(altitude || 0) !== Number(savedState.altitude || 0);
+        const nameChanged = normalizeStationName(location.name || 'home') !== normalizeStationName(savedState.name || 'home');
+        const callsignChanged = normalizeCallsign(location.callsign || '') !== normalizeCallsign(savedState.callsign || '');
         const locationIdChanged = (locationId || null) !== (savedState.locationId || null);
 
-        return latChanged || lonChanged || altitudeChanged || locationIdChanged;
+        return latChanged || lonChanged || altitudeChanged || nameChanged || callsignChanged || locationIdChanged;
     }, [hasLocation, savedState, location, altitude, locationId]);
 
     const canSave = hasLocation && !locationSaving;
@@ -282,7 +296,7 @@ const LocationPage = () => {
 
     const handleMapClick = async (e) => {
         const { lat, lng } = e.latlng;
-        dispatch(setLocation({ lat, lon: lng }));
+        updateLocationState({ lat, lon: lng });
         dispatch(setQth(getMaidenhead(lat, lng)));
         reCenterMap(lat, lng);
 
@@ -305,7 +319,7 @@ const LocationPage = () => {
             (position) => {
                 const { latitude, longitude, altitude: geoAltitude } = position.coords;
 
-                dispatch(setLocation({ lat: latitude, lon: longitude }));
+                updateLocationState({ lat: latitude, lon: longitude });
 
                 if (geoAltitude != null) {
                     dispatch(setAltitude(geoAltitude));
@@ -388,7 +402,7 @@ const LocationPage = () => {
             return;
         }
 
-        dispatch(setLocation({ lat: parsedLat, lon: parsedLon }));
+        updateLocationState({ lat: parsedLat, lon: parsedLon });
         dispatch(setQth(getMaidenhead(parsedLat, parsedLon)));
         reCenterMap(parsedLat, parsedLon);
 
@@ -412,6 +426,8 @@ const LocationPage = () => {
                 lat: Number(location.lat),
                 lon: Number(location.lon),
                 altitude: Number(altitude || 0),
+                name: normalizeStationName(location.name || 'home'),
+                callsign: normalizeCallsign(location.callsign || ''),
                 locationId: locationId || null,
             });
         } catch (error) {
@@ -422,7 +438,13 @@ const LocationPage = () => {
     const handleResetLocation = () => {
         if (!savedState) return;
 
-        dispatch(setLocation({ lat: savedState.lat, lon: savedState.lon }));
+        dispatch(setLocation({
+            ...(location || {}),
+            lat: savedState.lat,
+            lon: savedState.lon,
+            name: savedState.name,
+            callsign: savedState.callsign,
+        }));
         dispatch(setAltitude(savedState.altitude));
         dispatch(setLocationId(savedState.locationId));
         dispatch(setQth(getMaidenhead(savedState.lat, savedState.lon)));
@@ -444,14 +466,50 @@ const LocationPage = () => {
                     <Grid size={{ xs: 1, md: 1 }}>
                         <Stack spacing={2}>
                             <SettingsSection
+                                title={t('location.group_station_identity', { defaultValue: 'Station Identity' })}
+                                description={t('location.group_station_identity_help', {
+                                    defaultValue: 'Name and HAM callsign used for this ground station location.',
+                                })}
+                                sx={locationCardSx}
+                            >
+                                <Grid container spacing={2} columns={12}>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField
+                                            label={t('location.station_name', { defaultValue: 'Station Name' })}
+                                            value={stationName}
+                                            onChange={(event) => {
+                                                updateLocationState({ name: event.target.value });
+                                            }}
+                                            disabled={locationSaving}
+                                            fullWidth
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField
+                                            label={t('location.ham_callsign', { defaultValue: 'HAM Callsign' })}
+                                            value={stationCallsign}
+                                            onChange={(event) => {
+                                                updateLocationState({ callsign: event.target.value.toUpperCase() });
+                                            }}
+                                            disabled={locationSaving}
+                                            fullWidth
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </SettingsSection>
+
+                            <SettingsSection
                                 title={t('location.group_station_coordinates', { defaultValue: 'Station Coordinates' })}
-                                description={t('location.group_station_coordinates_help', {
-                                    defaultValue: 'Current latitude/longitude and QTH locator for the selected station point.',
+                                description={t('location.group_station_details_help', {
+                                    defaultValue: 'Coordinates and derived station metadata for the selected point.',
                                 })}
                                 sx={locationCardSx}
                             >
                                 {locationLoading && !hasLocation ? (
                                     <Stack spacing={1}>
+                                        <Skeleton variant="rounded" height={22} />
+                                        <Skeleton variant="rounded" height={22} />
+                                        <Skeleton variant="rounded" height={22} />
                                         <Skeleton variant="rounded" height={22} />
                                         <Skeleton variant="rounded" height={22} />
                                         <Skeleton variant="rounded" height={22} />
@@ -470,43 +528,32 @@ const LocationPage = () => {
                                                 {hasLocation ? `${normalizedLocation.lon.toFixed(6)}deg` : t('location.state_unavailable', { defaultValue: 'Unavailable' })}
                                             </Typography>
                                         </Grid>
-                                        <Grid size={{ xs: 12 }}>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
                                             <Typography variant="caption" color="text.secondary">{t('location.qth_locator')}</Typography>
                                             <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
                                                 {hasLocation ? (qth || 'N/A') : t('location.state_unavailable', { defaultValue: 'Unavailable' })}
                                             </Typography>
                                         </Grid>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="caption" color="text.secondary">{t('location.altitude')}</Typography>
+                                            <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
+                                                {elevationText}
+                                            </Typography>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="caption" color="text.secondary">{t('location.timezone')}</Typography>
+                                            <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
+                                                {`${timezoneName} (${tzOffsetDisplay})`}
+                                            </Typography>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="caption" color="text.secondary">{t('location.nearest_city')}</Typography>
+                                            <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
+                                                {nearestCityText}
+                                            </Typography>
+                                        </Grid>
                                     </Grid>
                                 )}
-                            </SettingsSection>
-
-                            <SettingsSection
-                                title={t('location.group_station_metadata', { defaultValue: 'Station Metadata' })}
-                                description={t('location.group_station_metadata_help', {
-                                    defaultValue: 'Derived location metadata from browser and external services.',
-                                })}
-                                sx={locationCardSx}
-                            >
-                                <Grid container spacing={2} columns={12}>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="caption" color="text.secondary">{t('location.altitude')}</Typography>
-                                        <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
-                                            {elevationText}
-                                        </Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="caption" color="text.secondary">{t('location.timezone')}</Typography>
-                                        <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
-                                            {`${timezoneName} (${tzOffsetDisplay})`}
-                                        </Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 12 }}>
-                                        <Typography variant="caption" color="text.secondary">{t('location.nearest_city')}</Typography>
-                                        <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
-                                            {nearestCityText}
-                                        </Typography>
-                                    </Grid>
-                                </Grid>
                             </SettingsSection>
 
                             <SettingsSection
@@ -609,7 +656,11 @@ const LocationPage = () => {
 
                                     {hasLocation && (
                                         <Marker position={normalizedLocation} icon={customIcon}>
-                                            <Popup>{t('location.your_selected_location')}</Popup>
+                                            <Popup>
+                                                {stationCallsignLabel
+                                                    ? `${stationLabel} (${stationCallsignLabel})`
+                                                    : stationLabel}
+                                            </Popup>
                                         </Marker>
                                     )}
 

@@ -308,6 +308,7 @@ class Locations(Base):
     __tablename__ = "locations"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     name = Column(String, nullable=False)
+    callsign = Column(String, nullable=True)
     lat = Column(Float, nullable=False)
     lon = Column(Float, nullable=False)
     alt = Column(Integer, nullable=False)

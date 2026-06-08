@@ -55,7 +55,14 @@ export const storeLocation = createAsyncThunk(
     async ({socket, location, altitude, locationId}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
             const command = locationId ? 'edit-location' : 'submit-location';
-            const data = {...location, alt: altitude, name: "home"};
+            const normalizedName = String(location?.name || '').trim() || 'home';
+            const normalizedCallsign = String(location?.callsign || '').trim().toUpperCase();
+            const data = {
+                ...location,
+                alt: altitude,
+                name: normalizedName,
+                callsign: normalizedCallsign || null,
+            };
             if (locationId) {
                 data.id = locationId;
             }
