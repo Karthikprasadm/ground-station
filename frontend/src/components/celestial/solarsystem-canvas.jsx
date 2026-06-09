@@ -47,6 +47,7 @@ const OFFSCREEN_TARGET_SOUTH_LABEL_BIAS_PX = 8;
 const OFFSCREEN_TARGET_NORTH_LABEL_BIAS_PX = 8;
 const OFFSCREEN_TARGET_SOUTH_ARROW_BIAS_PX = 20;
 const OFFSCREEN_TARGET_NORTH_ARROW_BIAS_PX = 20;
+const LABEL_EDGE_CENTER_OFFSET_PX = 40;
 const MAX_BACKGROUND_RING_RADIUS_PX = 12000;
 const MAX_ZONE_LABEL_RADIUS_PX = 3600;
 const AU_IN_KM = 149597870.7;
@@ -854,16 +855,31 @@ const SolarSystemCanvas = ({
 
             const placement = placeLabel(label, anchorX + offsetX, anchorY + offsetY);
             if (!placement) return;
+            const adjustedPlacement = {
+                ...placement,
+                box: { ...placement.box },
+            };
+            // Keep at least LABEL_EDGE_CENTER_OFFSET_PX from left/right edges.
+            if (adjustedPlacement.box.x <= 0) {
+                const delta = LABEL_EDGE_CENTER_OFFSET_PX - adjustedPlacement.box.x;
+                adjustedPlacement.x += delta;
+                adjustedPlacement.box.x += delta;
+            } else if ((adjustedPlacement.box.x + adjustedPlacement.box.w) >= width) {
+                const delta = (width - LABEL_EDGE_CENTER_OFFSET_PX)
+                    - (adjustedPlacement.box.x + adjustedPlacement.box.w);
+                adjustedPlacement.x += delta;
+                adjustedPlacement.box.x += delta;
+            }
 
             ctx.save();
             ctx.font = LABEL_FONT;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillStyle = color;
-            ctx.fillText(label, placement.x, placement.y);
+            ctx.fillText(label, adjustedPlacement.x, adjustedPlacement.y);
             ctx.restore();
 
-            placedLabelBoxes.push(placement.box);
+            placedLabelBoxes.push(adjustedPlacement.box);
         };
         const findOffscreenLabelPlacement = ({
             baseX,
@@ -887,8 +903,8 @@ const SolarSystemCanvas = ({
                 sideCandidates.push(baseSideShift - delta);
             }
 
-            const minLabelX = OFFSCREEN_TARGET_EDGE_INSET_PX + textWidth / 2 + OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX;
-            const maxLabelX = width - OFFSCREEN_TARGET_EDGE_INSET_PX - textWidth / 2 - OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX;
+            const minLabelX = LABEL_EDGE_CENTER_OFFSET_PX + textWidth / 2 + OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX;
+            const maxLabelX = width - LABEL_EDGE_CENTER_OFFSET_PX - textWidth / 2 - OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX;
             const minLabelY = OFFSCREEN_TARGET_EDGE_INSET_PX + textHeight / 2 + OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX;
             const maxLabelY = height - OFFSCREEN_TARGET_EDGE_INSET_PX - textHeight / 2 - OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX;
 
