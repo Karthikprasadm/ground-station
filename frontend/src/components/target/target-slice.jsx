@@ -409,7 +409,7 @@ export const sendNudgeCommand = createAsyncThunk(
 
 export const setTargetMapSetting = createAsyncThunk(
     'targetSatTrack/setTargetMapSetting',
-    async ({socket, key}, {getState, rejectWithValue}) => {
+    async ({socket, key, overrides = {}}, {getState, rejectWithValue}) => {
         const state = getState();
         const mapSettings = {
             lockOnTarget: state['targetSatTrack']['lockOnTarget'],
@@ -432,7 +432,11 @@ export const setTargetMapSetting = createAsyncThunk(
             targetViewMode: normalizeTargetViewMode(state['targetSatTrack']['targetViewMode']),
             targetViewEnableDragging: state['targetSatTrack']['targetViewEnableDragging'] ?? true,
             targetViewEnableZooming: state['targetSatTrack']['targetViewEnableZooming'] ?? true,
+            ...overrides,
         };
+        mapSettings.targetViewMode = normalizeTargetViewMode(mapSettings.targetViewMode);
+        mapSettings.targetViewEnableDragging = Boolean(mapSettings.targetViewEnableDragging);
+        mapSettings.targetViewEnableZooming = Boolean(mapSettings.targetViewEnableZooming);
 
         return await new Promise((resolve, reject) => {
             socket.emit("api.call", {

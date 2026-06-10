@@ -962,9 +962,9 @@ const LeafletTargetMapRenderer = ({}) => {
                     </Box>
                 </TitleBar>
                 <TargetCelestialViewSettingsDialog
-                    updateBackend={() => {
+                    updateBackend={(overrides) => {
                         const key = 'target-map-settings';
-                        dispatch(setTargetMapSetting({socket, key: key}));
+                        dispatch(setTargetMapSetting({socket, key: key, overrides}));
                     }}
                 />
                 <Box sx={{ width: '100%', flex: 1, minHeight: 0 }}>

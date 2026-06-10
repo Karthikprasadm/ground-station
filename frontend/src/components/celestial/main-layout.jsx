@@ -586,6 +586,8 @@ const CelestialMainLayout = () => {
                                     scene={combinedScene}
                                     selectedTargetKeys={selectedTargetKeys}
                                     focusTargetKey={focusTargetKey}
+                                    enableMapDragging={interactionSettings.enableMapDragging}
+                                    enableMapZooming={interactionSettings.enableMapZooming}
                                 />
                             ) : (
                                 <SolarSystemCanvas

@@ -151,7 +151,11 @@ function TargetCelestialViewSettingsDialog({ updateBackend }) {
         dispatch(setTargetViewMode(draftViewMode));
         dispatch(setTargetViewEnableDragging(draftInteraction.enableDragging));
         dispatch(setTargetViewEnableZooming(draftInteraction.enableZooming));
-        await Promise.resolve(updateBackend?.());
+        await Promise.resolve(updateBackend?.({
+            targetViewMode: draftViewMode,
+            targetViewEnableDragging: draftInteraction.enableDragging,
+            targetViewEnableZooming: draftInteraction.enableZooming,
+        }));
         dispatch(setOpenMapSettingsDialog(false));
     };
 
