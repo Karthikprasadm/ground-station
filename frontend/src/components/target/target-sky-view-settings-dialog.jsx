@@ -39,6 +39,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import {
     setOpenMapSettingsDialog,
+    setMapEngine,
     setTargetViewEnableDragging,
     setTargetViewEnableZooming,
     setTargetViewMode,
@@ -46,6 +47,19 @@ import {
     TARGET_VIEW_MODE_PLANETARIUM,
     TARGET_VIEW_MODE_SOLAR_SYSTEM,
 } from './target-slice.jsx';
+import {
+    MAP_ENGINE_LEAFLET,
+    MAP_ENGINE_MAPLIBRE,
+    MAP_ENGINE_MAPLIBRE_GLOBE,
+} from '../common/tile-layers.jsx';
+
+const MAP_ENGINE_PLANETARIUM = 'planetarium';
+const TARGET_MAP_ENGINE_OPTIONS = [
+    {id: MAP_ENGINE_LEAFLET, name: 'Leaflet'},
+    {id: MAP_ENGINE_MAPLIBRE, name: 'MapLibre'},
+    {id: MAP_ENGINE_MAPLIBRE_GLOBE, name: 'MapLibre Globe'},
+    {id: MAP_ENGINE_PLANETARIUM, name: 'Planetarium'},
+];
 
 const DIALOG_PAPER_SX = {
     bgcolor: 'background.paper',
@@ -64,6 +78,18 @@ const DIALOG_TITLE_SX = {
 const normalizeTargetViewMode = (value) => (
     value === TARGET_VIEW_MODE_PLANETARIUM ? TARGET_VIEW_MODE_PLANETARIUM : TARGET_VIEW_MODE_SOLAR_SYSTEM
 );
+const normalizeTargetMapEngine = (mapEngine) => {
+    const normalizedMapEngine = String(mapEngine || '').trim().toLowerCase();
+    if (
+        normalizedMapEngine === MAP_ENGINE_LEAFLET
+        || normalizedMapEngine === MAP_ENGINE_MAPLIBRE
+        || normalizedMapEngine === MAP_ENGINE_MAPLIBRE_GLOBE
+        || normalizedMapEngine === MAP_ENGINE_PLANETARIUM
+    ) {
+        return normalizedMapEngine;
+    }
+    return MAP_ENGINE_MAPLIBRE;
+};
 
 const SectionBlock = ({ title, subtitle, children }) => (
     <Paper
@@ -111,10 +137,15 @@ function TargetSkyViewSettingsDialog({ updateBackend }) {
     const { t } = useTranslation('target');
     const {
         openMapSettingsDialog,
+        mapEngine,
         targetViewMode,
         targetViewEnableDragging,
         targetViewEnableZooming,
     } = useSelector((state) => state.targetSatTrack);
+    const normalizedInitialMapEngine = useMemo(
+        () => normalizeTargetMapEngine(mapEngine),
+        [mapEngine],
+    );
     const normalizedInitialViewMode = useMemo(
         () => normalizeTargetViewMode(targetViewMode),
         [targetViewMode],
@@ -126,29 +157,33 @@ function TargetSkyViewSettingsDialog({ updateBackend }) {
         }),
         [targetViewEnableDragging, targetViewEnableZooming],
     );
+    const [draftMapEngine, setDraftMapEngine] = useState(normalizedInitialMapEngine);
     const [draftViewMode, setDraftViewMode] = useState(normalizedInitialViewMode);
     const [draftInteraction, setDraftInteraction] = useState(initialInteraction);
     const [saveState, setSaveState] = useState('idle');
 
     useEffect(() => {
         if (openMapSettingsDialog) {
+            setDraftMapEngine(normalizedInitialMapEngine);
             setDraftViewMode(normalizedInitialViewMode);
             setDraftInteraction(initialInteraction);
             setSaveState('idle');
         }
-    }, [initialInteraction, openMapSettingsDialog, normalizedInitialViewMode]);
+    }, [initialInteraction, openMapSettingsDialog, normalizedInitialMapEngine, normalizedInitialViewMode]);
 
     useEffect(() => {
         setSaveState((current) => ((current === 'saved' || current === 'error') ? 'idle' : current));
-    }, [draftInteraction, draftViewMode]);
+    }, [draftInteraction, draftMapEngine, draftViewMode]);
 
     const isDirty = (
-        draftViewMode !== normalizedInitialViewMode
+        draftMapEngine !== normalizedInitialMapEngine
+        || draftViewMode !== normalizedInitialViewMode
         || draftInteraction.enableDragging !== initialInteraction.enableDragging
         || draftInteraction.enableZooming !== initialInteraction.enableZooming
     );
 
     const handleClose = () => {
+        setDraftMapEngine(normalizedInitialMapEngine);
         setDraftViewMode(normalizedInitialViewMode);
         setDraftInteraction(initialInteraction);
         setSaveState('idle');
@@ -158,10 +193,12 @@ function TargetSkyViewSettingsDialog({ updateBackend }) {
     const handleApply = async () => {
         setSaveState('saving');
         try {
+            dispatch(setMapEngine(draftMapEngine));
             dispatch(setTargetViewMode(draftViewMode));
             dispatch(setTargetViewEnableDragging(draftInteraction.enableDragging));
             dispatch(setTargetViewEnableZooming(draftInteraction.enableZooming));
             await Promise.resolve(updateBackend?.({
+                mapEngine: draftMapEngine,
                 targetViewMode: draftViewMode,
                 targetViewEnableDragging: draftInteraction.enableDragging,
                 targetViewEnableZooming: draftInteraction.enableZooming,
@@ -173,6 +210,7 @@ function TargetSkyViewSettingsDialog({ updateBackend }) {
     };
 
     const handleReset = () => {
+        setDraftMapEngine(MAP_ENGINE_MAPLIBRE);
         setDraftViewMode(TARGET_VIEW_MODE_SOLAR_SYSTEM);
         setDraftInteraction({
             enableDragging: true,
@@ -200,6 +238,26 @@ function TargetSkyViewSettingsDialog({ updateBackend }) {
             </DialogTitle>
             <DialogContent sx={{ p: 0 }}>
                 <Stack spacing={1.5} sx={{ px: 2, pt: 2, pb: 1.5 }}>
+                    <SectionBlock
+                        title="Rendering Engine"
+                        subtitle="Choose the renderer used for the Target page."
+                    >
+                        <FormControl fullWidth size="small">
+                            <InputLabel id="target-map-engine-label">Map Engine</InputLabel>
+                            <Select
+                                labelId="target-map-engine-label"
+                                value={draftMapEngine}
+                                label="Map Engine"
+                                onChange={(event) => setDraftMapEngine(normalizeTargetMapEngine(event.target.value))}
+                            >
+                                {TARGET_MAP_ENGINE_OPTIONS.map((engine) => (
+                                    <MenuItem key={engine.id} value={engine.id}>
+                                        {engine.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </SectionBlock>
                     <SectionBlock
                         title="View Mode"
                         subtitle="Choose the celestial visualization used for mission and body targets."

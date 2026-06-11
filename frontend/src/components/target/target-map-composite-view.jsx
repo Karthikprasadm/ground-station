@@ -89,6 +89,7 @@ import {
 import TargetNumberIcon from '../common/target-number-icon.jsx';
 import { useTooltipOrientation } from '../common/tooltip-orientation.js';
 import TargetMapSettingsDialog from './target-map-settings-dialog.jsx';
+import TargetSkyViewSettingsDialog from './target-sky-view-settings-dialog.jsx';
 import CoordinateGrid from "../common/mercator-grid.jsx";
 import createTerminatorLine from "../common/terminator-line.jsx";
 import {getSunMoonCoords} from "../common/sunmoon.jsx";
@@ -1093,7 +1094,7 @@ const TargetMapCompositeView = ({}) => {
                         </Box>
                     </Box>
                 </TitleBar>
-                <TargetMapSettingsDialog updateBackend={() => {
+                <TargetSkyViewSettingsDialog updateBackend={() => {
                     const key = 'target-map-settings';
                     dispatch(setTargetMapSetting({socket, key}));
                 }}/>

@@ -280,6 +280,7 @@ const CelestialMainLayout = () => {
     const isEditing = useSelector((state) => state.dashboard?.isEditing);
     const celestialState = useSelector((state) => state.celestial);
     const solarSystemDisplayOptions = useSelector((state) => state.celestialDisplay?.solarSystem);
+    const planetariumDisplayOptions = useSelector((state) => state.celestialDisplay?.planetarium);
     const monitoredState = useSelector((state) => state.celestialMonitored);
     const { width, containerRef, mounted } = useContainerWidth({ measureBeforeMount: true });
 
@@ -597,6 +598,7 @@ const CelestialMainLayout = () => {
                                     focusTargetKey={focusTargetKey}
                                     enableMapDragging={interactionSettings.enableMapDragging}
                                     enableMapZooming={interactionSettings.enableMapZooming}
+                                    displayOptions={planetariumDisplayOptions}
                                 />
                             ) : (
                                 <SolarSystemCanvas
@@ -758,7 +760,8 @@ const CelestialMainLayout = () => {
         <Box sx={{ width: '100%', height: '100%' }}>
             <SolarSystemLayoutOptionsDialog
                 open={openSolarSystemLayoutOptionsDialog}
-                initialOptions={solarSystemDisplayOptions}
+                initialSolarSystemOptions={solarSystemDisplayOptions}
+                initialPlanetariumOptions={planetariumDisplayOptions}
                 initialInteractionSettings={interactionSettings}
                 initialViewMode={viewMode}
                 onApplyInteractionSettings={(nextInteraction) => {

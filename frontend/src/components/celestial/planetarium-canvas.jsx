@@ -65,6 +65,18 @@ const STAR_COLOR_STOPS = [
     { bv: 0.9, rgb: [255, 216, 174] },
     { bv: 1.6, rgb: [255, 176, 124] },
 ];
+const DEFAULT_DISPLAY_OPTIONS = {
+    showGrid: true,
+    showHorizonCompass: true,
+    showStarField: true,
+    showStarNames: true,
+    showConstellationLabels: true,
+    showPassCurves: true,
+    showPlanetLabels: true,
+    showTargetLabels: true,
+    showRotatorCrosshair: true,
+    showHud: true,
+};
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const normalizeDegrees = (value) => ((Number(value) % 360) + 360) % 360;
@@ -361,6 +373,7 @@ function PlanetariumCanvas({
     zoomOutSignal = 0,
     resetZoomSignal = 0,
     centerSunSignal = 0,
+    displayOptions = DEFAULT_DISPLAY_OPTIONS,
 }) {
     const theme = useTheme();
     const containerRef = useRef(null);
@@ -396,6 +409,14 @@ function PlanetariumCanvas({
     const sceneDate = useMemo(() => resolveSceneDate(scene), [scene]);
     const observerName = String(observerLocation?.name || '').trim();
     const timestamp = String(scene?.timestamp_utc || '').trim();
+    const effectiveDisplayOptions = useMemo(
+        () => ({
+            ...DEFAULT_DISPLAY_OPTIONS,
+            ...(displayOptions || {}),
+        }),
+        [displayOptions],
+    );
+    const shouldRenderStarCatalog = effectiveDisplayOptions.showStarField || effectiveDisplayOptions.showConstellationLabels;
 
     const starObjects = useMemo(() => {
         if (!observerLocation || !starCatalog.length) return [];
@@ -432,6 +453,7 @@ function PlanetariumCanvas({
     }, []);
 
     useEffect(() => {
+        if (!shouldRenderStarCatalog) return undefined;
         if (starCatalog.length || starCatalogLoadFailed) return undefined;
         const controller = new AbortController();
         fetch(STARFIELD_CATALOG_URL, { signal: controller.signal })
@@ -445,7 +467,7 @@ function PlanetariumCanvas({
                 setStarCatalogLoadFailed(true);
             });
         return () => controller.abort();
-    }, [starCatalog.length, starCatalogLoadFailed]);
+    }, [shouldRenderStarCatalog, starCatalog.length, starCatalogLoadFailed]);
 
     useEffect(() => {
         if (!focusedKey) return;
@@ -651,43 +673,59 @@ function PlanetariumCanvas({
             ctx.restore();
         };
 
-        for (let az = 0; az < 360; az += 30) {
-            const points = [];
-            for (let el = -10; el <= 90; el += 2) points.push({ az, el });
-            drawPolyline(points, gridColor, 1);
-        }
-
-        for (let el = -30; el <= 75; el += 15) {
-            const points = [];
-            for (let az = 0; az <= 360; az += 2) points.push({ az, el });
-            drawPolyline(points, el === 0 ? horizonColor : gridColor, el === 0 ? 1.6 : 1);
-        }
-        drawHorizonTicks();
-
-        starObjects.forEach((star) => {
-            if (star.el < -12) return;
-            const projected = projectSkyPoint(star, view, size);
-            if (!projected) return;
-            if (projected.x < -20 || projected.x > size.width + 20 || projected.y < -20 || projected.y > size.height + 20) return;
-
-            const visibleAlpha = star.el >= 0 ? 1 : 0.22;
-            const magFactor = clamp((6.7 - star.mag) / 7.8, 0.08, 1);
-            const radius = star.mag <= 0 ? 2.6 : (star.mag <= 2 ? 1.9 : 0.65 + magFactor * 1.35);
-            ctx.beginPath();
-            ctx.arc(projected.x, projected.y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = resolveStarRgba(star.bv, visibleAlpha * clamp(magFactor + 0.25, 0.25, 1));
-            ctx.fill();
-
-            if (star.name && star.mag <= NAMED_STAR_MAG_LIMIT && view.fov <= 55 && star.el >= -4) {
-                drawText(ctx, star.name, projected.x + 5, projected.y - 7, {
-                    color: mutedTextColor,
-                    font: '10px sans-serif',
-                    align: 'left',
-                });
+        if (effectiveDisplayOptions.showGrid) {
+            for (let az = 0; az < 360; az += 30) {
+                const points = [];
+                for (let el = -10; el <= 90; el += 2) points.push({ az, el });
+                drawPolyline(points, gridColor, 1);
             }
-        });
 
-        if (view.fov <= 80) {
+            for (let el = -30; el <= 75; el += 15) {
+                if (el === 0) continue;
+                const points = [];
+                for (let az = 0; az <= 360; az += 2) points.push({ az, el });
+                drawPolyline(points, gridColor, 1);
+            }
+        }
+        if (effectiveDisplayOptions.showHorizonCompass) {
+            const horizonPoints = [];
+            for (let az = 0; az <= 360; az += 2) horizonPoints.push({ az, el: 0 });
+            drawPolyline(horizonPoints, horizonColor, 1.6);
+            drawHorizonTicks();
+        }
+
+        if (effectiveDisplayOptions.showStarField) {
+            starObjects.forEach((star) => {
+                if (star.el < -12) return;
+                const projected = projectSkyPoint(star, view, size);
+                if (!projected) return;
+                if (projected.x < -20 || projected.x > size.width + 20 || projected.y < -20 || projected.y > size.height + 20) return;
+
+                const visibleAlpha = star.el >= 0 ? 1 : 0.22;
+                const magFactor = clamp((6.7 - star.mag) / 7.8, 0.08, 1);
+                const radius = star.mag <= 0 ? 2.6 : (star.mag <= 2 ? 1.9 : 0.65 + magFactor * 1.35);
+                ctx.beginPath();
+                ctx.arc(projected.x, projected.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = resolveStarRgba(star.bv, visibleAlpha * clamp(magFactor + 0.25, 0.25, 1));
+                ctx.fill();
+
+                if (
+                    effectiveDisplayOptions.showStarNames
+                    && star.name
+                    && star.mag <= NAMED_STAR_MAG_LIMIT
+                    && view.fov <= 55
+                    && star.el >= -4
+                ) {
+                    drawText(ctx, star.name, projected.x + 5, projected.y - 7, {
+                        color: mutedTextColor,
+                        font: '10px sans-serif',
+                        align: 'left',
+                    });
+                }
+            });
+        }
+
+        if (effectiveDisplayOptions.showConstellationLabels && view.fov <= 80) {
             constellationLabels.forEach((label) => {
                 if (label.el < -10) return;
                 const projected = projectSkyPoint(label, view, size);
@@ -700,15 +738,17 @@ function PlanetariumCanvas({
             });
         }
 
-        passCurves.forEach((curve) => {
-            const isSelected = selectedKeys.has(curve.key) || curve.key === focusedKey;
-            drawPolyline(
-                curve.points,
-                isSelected ? theme.palette.warning.main : 'rgba(125, 168, 255, 0.48)',
-                isSelected ? 2 : 1,
-                isSelected ? [] : [4, 5],
-            );
-        });
+        if (effectiveDisplayOptions.showPassCurves) {
+            passCurves.forEach((curve) => {
+                const isSelected = selectedKeys.has(curve.key) || curve.key === focusedKey;
+                drawPolyline(
+                    curve.points,
+                    isSelected ? theme.palette.warning.main : 'rgba(125, 168, 255, 0.48)',
+                    isSelected ? 2 : 1,
+                    isSelected ? [] : [4, 5],
+                );
+            });
+        }
 
         skyObjects.forEach((object) => {
             const isSelected = selectedKeys.has(object.key) || object.key === focusedKey;
@@ -722,11 +762,11 @@ function PlanetariumCanvas({
             const markerRadius = isSelected ? 7 : (object.kind === 'target' ? 5 : 4);
             const belowHorizonColor = theme.palette.mode === 'dark' ? '#9aa3b2' : '#687386';
             const markerColor = isSelected && isBelowHorizon ? belowHorizonColor : object.color;
-            const labelColor = isSelected && isBelowHorizon ? belowHorizonColor : (isSelected ? theme.palette.warning.main : textColor);
+            const outlineColor = isSelected && isBelowHorizon ? belowHorizonColor : (isSelected ? theme.palette.warning.main : textColor);
             ctx.save();
             ctx.globalAlpha = isSelected && isBelowHorizon ? 0.52 : (object.visible ? 1 : 0.34);
             ctx.fillStyle = markerColor;
-            ctx.strokeStyle = labelColor;
+            ctx.strokeStyle = outlineColor;
             ctx.lineWidth = isSelected ? 2.6 : 1.4;
             if (isSelected && isBelowHorizon) {
                 const arm = markerRadius + 4;
@@ -753,25 +793,30 @@ function PlanetariumCanvas({
             }
             ctx.restore();
 
-            const labelX = clamp(projected.x + markerRadius + 8, 8, size.width - 8);
-            const labelY = isSelected && isBelowHorizon
-                ? clamp(projected.y - 7, 12, size.height - 22)
-                : clamp(projected.y - markerRadius - 4, 10, size.height - 10);
-            drawText(ctx, object.name, labelX, labelY, {
-                color: labelColor,
-                font: isSelected ? '700 12px sans-serif' : '11px sans-serif',
-                align: 'left',
-            });
-            if (isSelected && isBelowHorizon) {
-                drawText(ctx, 'Target below horizon', labelX, labelY + 13, {
-                    color: belowHorizonColor,
-                    font: '700 10px sans-serif',
+            const shouldShowObjectLabel = object.kind === 'planet'
+                ? effectiveDisplayOptions.showPlanetLabels
+                : effectiveDisplayOptions.showTargetLabels;
+            if (shouldShowObjectLabel) {
+                const labelX = clamp(projected.x + markerRadius + 8, 8, size.width - 8);
+                const labelY = isSelected && isBelowHorizon
+                    ? clamp(projected.y - 7, 12, size.height - 22)
+                    : clamp(projected.y - markerRadius - 4, 10, size.height - 10);
+                drawText(ctx, object.name, labelX, labelY, {
+                    color: outlineColor,
+                    font: isSelected ? '700 12px sans-serif' : '11px sans-serif',
                     align: 'left',
                 });
+                if (isSelected && isBelowHorizon && object.kind === 'target') {
+                    drawText(ctx, 'Target below horizon', labelX, labelY + 13, {
+                        color: belowHorizonColor,
+                        font: '700 10px sans-serif',
+                        align: 'left',
+                    });
+                }
             }
         });
 
-        if (normalizedRotatorCrosshair) {
+        if (effectiveDisplayOptions.showRotatorCrosshair && normalizedRotatorCrosshair) {
             const projected = projectSkyPoint(normalizedRotatorCrosshair, view, size);
             if (
                 projected
@@ -823,22 +868,25 @@ function PlanetariumCanvas({
             }
         }
 
-        const viewLabel = `Az ${Math.round(view.centerAz)} / El ${Math.round(view.centerEl)} / FOV ${Math.round(view.fov)}`;
-        drawText(ctx, viewLabel, 10, 14, {
-            color: mutedTextColor,
-            font: '10px monospace',
-            align: 'left',
-        });
-
-        if (observerName || timestamp) {
-            const label = [observerName, timestamp].filter(Boolean).join(' - ');
-            drawText(ctx, label, 10, size.height - 12, {
+        if (effectiveDisplayOptions.showHud) {
+            const viewLabel = `Az ${Math.round(view.centerAz)} / El ${Math.round(view.centerEl)} / FOV ${Math.round(view.fov)}`;
+            drawText(ctx, viewLabel, 10, 14, {
                 color: mutedTextColor,
                 font: '10px monospace',
                 align: 'left',
             });
+
+            if (observerName || timestamp) {
+                const label = [observerName, timestamp].filter(Boolean).join(' - ');
+                drawText(ctx, label, 10, size.height - 12, {
+                    color: mutedTextColor,
+                    font: '10px monospace',
+                    align: 'left',
+                });
+            }
         }
     }, [
+        effectiveDisplayOptions,
         constellationLabels,
         focusedKey,
         observerName,

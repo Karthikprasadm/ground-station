@@ -278,7 +278,7 @@ const celestialMonitoredPersistConfig = {
 const celestialDisplayPersistConfig = {
     key: 'celestialDisplay',
     storage,
-    whitelist: ['solarSystem'],
+    whitelist: ['solarSystem', 'planetarium'],
 };
 
 
