@@ -60,6 +60,11 @@ const cardSx = {
             : '0 20px 46px rgba(15, 23, 42, 0.16)',
 };
 
+const loginCardSx = {
+    ...cardSx,
+    maxWidth: 350,
+};
+
 const stationPanelSx = {
     p: 1.25,
     borderRadius: 1,
@@ -77,9 +82,9 @@ function normalizeStationIdentity(station) {
     return { name, callsign };
 }
 
-function StationIdentityPanel({ station }) {
+function StationIdentityPanel({ station, showCallsign = true }) {
     const { name, callsign } = normalizeStationIdentity(station);
-    if (!name && !callsign) {
+    if (!name && (!showCallsign || !callsign)) {
         return null;
     }
 
@@ -93,7 +98,7 @@ function StationIdentityPanel({ station }) {
                     {name}
                 </Typography>
             )}
-            {callsign && (
+            {showCallsign && callsign && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     Callsign: {callsign}
                 </Typography>
@@ -207,6 +212,7 @@ function AdminRegistrationForm({ title, description, station }) {
 export function LoginScreen() {
     const dispatch = useDispatch();
     const { loadingAction, error, station } = useSelector((state) => state.auth);
+    const stationName = normalizeStationIdentity(station).name || 'Ground Station';
 
     const [username, setUsername] = React.useState('');
     const [password, setPassword] = React.useState('');
@@ -231,14 +237,18 @@ export function LoginScreen() {
 
     return (
         <Box sx={shellSx}>
-            <Card sx={cardSx}>
+            <Card sx={loginCardSx}>
                 <CardContent sx={{ p: 3 }}>
                     <Stack spacing={2}>
                         <AuthCardHeader
                             title="Sign In"
                             description="Authentication is required to use this Ground Station instance."
                         />
-                        <StationIdentityPanel station={station} />
+                        <Box sx={stationPanelSx}>
+                            <Typography variant="body2" align="center" fontWeight={700}>
+                                {stationName}
+                            </Typography>
+                        </Box>
                         {(localError || error) && (
                             <Alert severity="error">{localError || error}</Alert>
                         )}
