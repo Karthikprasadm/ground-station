@@ -570,6 +570,22 @@ class CelestialVectorSnapshots(Base):
         onupdate=datetime.now(timezone.utc),
     )
 
+    __table_args__ = (
+        # Keep lookup uniqueness in model metadata so schema bootstrap/restore paths
+        # can recreate this constraint when the DB is rebuilt from SQL dumps.
+        Index(
+            "ix_celestial_vector_snapshots_lookup",
+            "target_id",
+            "epoch_bucket_utc",
+            "past_hours",
+            "future_hours",
+            "step_minutes",
+            "frame",
+            "center",
+            unique=True,
+        ),
+    )
+
 
 class ObservationStatus(str, PyEnum):
     SCHEDULED = "scheduled"

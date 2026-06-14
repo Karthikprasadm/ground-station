@@ -45,8 +45,15 @@ from tracker.messages import handle_tracker_messages
 
 # Increase payload limits to handle large waterfall PNG images and maintenance uploads.
 Payload.max_decode_packets = 50
-# Default is 100KB (100000 bytes), increase to 30MB.
-Payload.max_decode_packet_size = 30 * 1024 * 1024  # 30MB
+# Keep comfortably above the user-facing 300MB restore limit so JSON/Socket.IO escaping
+# overhead does not reject requests near the configured cap.
+SOCKET_IO_MAX_PAYLOAD_BYTES = 384 * 1024 * 1024  # 384MB
+# Large setup restore payloads can keep a request in-flight for a while; allow longer
+# heartbeat windows so transport is not dropped mid-restore.
+SOCKET_IO_PING_INTERVAL_SECONDS = 25
+SOCKET_IO_PING_TIMEOUT_SECONDS = 120
+# Default is 100KB (100000 bytes), increase for large backup restore payloads.
+Payload.max_decode_packet_size = SOCKET_IO_MAX_PAYLOAD_BYTES
 
 # At the top of the file, add a global to track background tasks
 background_tasks: Set[asyncio.Task] = set()
@@ -209,7 +216,9 @@ sio = socketio.AsyncServer(
     logger=True,
     engineio_logger=True,
     binary=True,
-    max_http_buffer_size=30 * 1024 * 1024,  # 30MB for large Socket.IO payloads
+    max_http_buffer_size=SOCKET_IO_MAX_PAYLOAD_BYTES,
+    ping_interval=SOCKET_IO_PING_INTERVAL_SECONDS,
+    ping_timeout=SOCKET_IO_PING_TIMEOUT_SECONDS,
 )
 
 

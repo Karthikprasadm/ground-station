@@ -18,6 +18,9 @@
  */
 
 import * as React from 'react';
+import CloudOffIcon from '@mui/icons-material/CloudOff';
+import SyncProblemIcon from '@mui/icons-material/SyncProblem';
+import { keyframes } from '@emotion/react';
 import {
     Alert,
     Box,
@@ -74,6 +77,22 @@ const stationPanelSx = {
     backgroundColor: (theme) =>
         alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.14 : 0.08),
 };
+
+const fadeIn = keyframes`
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+`;
+
+const progressSweep = keyframes`
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(333%); }
+`;
 
 function normalizeStationIdentity(station) {
     if (!station || typeof station !== 'object') {
@@ -382,20 +401,32 @@ export function SetupScreen() {
     }, [dispatch, socket]);
 
     const wizardBackendReady = setupConnectionState === 'connected';
-    const connectionBanner = (() => {
-        if (wizardBackendReady) {
-            return null;
-        }
-        if (setupConnectionState === 'reconnecting') {
-            return reconnectAttempt > 0
-                ? `Backend disconnected. Reconnecting (attempt ${reconnectAttempt})...`
-                : 'Backend disconnected. Reconnecting...';
+    const showConnectionOverlay = !wizardBackendReady;
+    const connectionOverlayState = (() => {
+        if (setupConnectionState === 'reconnecting' && reconnectAttempt > 0) {
+            return {
+                icon: SyncProblemIcon,
+                title: 'Backend disconnected',
+                message: `Reconnecting (attempt ${reconnectAttempt})...`,
+                tone: 'warning',
+            };
         }
         if (setupConnectionState === 'disconnected') {
-            return 'Backend disconnected. Reconnecting...';
+            return {
+                icon: CloudOffIcon,
+                title: 'Backend disconnected',
+                message: 'Reconnecting...',
+                tone: 'info',
+            };
         }
-        return 'Connecting to backend...';
+        return {
+            icon: CloudOffIcon,
+            title: 'Connecting to backend',
+            message: 'Establishing backend connection...',
+            tone: 'info',
+        };
     })();
+    const ConnectionStatusIcon = connectionOverlayState.icon;
 
     if (!locationChecked) {
         return (
@@ -453,16 +484,9 @@ export function SetupScreen() {
                     flex: 1,
                     minHeight: 0,
                     overflow: 'hidden',
+                    position: 'relative',
                 }}
             >
-                {connectionBanner && (
-                    <Alert
-                        severity={setupConnectionState === 'connecting' ? 'info' : 'warning'}
-                        sx={{ mb: 1 }}
-                    >
-                        {connectionBanner}
-                    </Alert>
-                )}
                 <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
                     <LocationPage
                         wizardMode
@@ -470,6 +494,109 @@ export function SetupScreen() {
                         wizardBackendReady={wizardBackendReady}
                     />
                 </Box>
+                {showConnectionOverlay && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            zIndex: 8,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            px: 2,
+                            py: 3,
+                            backgroundColor: (theme) => theme.palette.surface.scrim,
+                            backdropFilter: 'blur(4px)',
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                animation: `${fadeIn} 0.2s ease-out`,
+                                backgroundColor: (theme) =>
+                                    theme.palette.statusSurface?.[connectionOverlayState.tone]
+                                    || theme.palette.surface.raised,
+                                border: '1px solid',
+                                borderColor: (theme) =>
+                                    alpha(
+                                        theme.palette[connectionOverlayState.tone]?.main
+                                            || theme.palette.text.secondary,
+                                        theme.palette.mode === 'dark' ? 0.6 : 0.45
+                                    ),
+                                borderRadius: 1,
+                                p: 3,
+                                minWidth: 280,
+                                maxWidth: 320,
+                                boxShadow: (theme) =>
+                                    theme.palette.mode === 'dark'
+                                        ? '0 8px 24px rgba(0, 0, 0, 0.45)'
+                                        : '0 8px 24px rgba(15, 23, 42, 0.16)',
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    mb: 2,
+                                }}
+                            >
+                                <ConnectionStatusIcon
+                                    sx={{
+                                        fontSize: 24,
+                                        color: (theme) =>
+                                            theme.palette[connectionOverlayState.tone]?.main
+                                            || theme.palette.text.secondary,
+                                    }}
+                                />
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography
+                                        variant="subtitle1"
+                                        sx={{
+                                            color: 'text.primary',
+                                            fontWeight: 500,
+                                            mb: 0.5,
+                                            fontSize: '1rem',
+                                        }}
+                                    >
+                                        {connectionOverlayState.title}
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: 'text.secondary',
+                                            fontSize: '0.875rem',
+                                        }}
+                                    >
+                                        {connectionOverlayState.message}
+                                    </Typography>
+                                </Box>
+                            </Box>
+
+                            <Box
+                                sx={{
+                                    width: '100%',
+                                    height: 2,
+                                    backgroundColor: (theme) => theme.palette.state.disabledBg,
+                                    borderRadius: 1,
+                                    overflow: 'hidden',
+                                    position: 'relative',
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        height: '100%',
+                                        width: '30%',
+                                        backgroundColor: (theme) =>
+                                            theme.palette[connectionOverlayState.tone]?.main
+                                            || theme.palette.text.secondary,
+                                        borderRadius: 1,
+                                        animation: `${progressSweep} 2s infinite ease-in-out`,
+                                    }}
+                                />
+                            </Box>
+                        </Box>
+                    </Box>
+                )}
             </DialogContent>
         </Dialog>
     );

@@ -101,7 +101,7 @@ const getLatestTask = (tasks, predicate) => (
         .sort((first, second) => getTaskStartTime(second) - getTaskStartTime(first))[0] || null
 );
 
-const FULL_RESTORE_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const FULL_RESTORE_MAX_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 const FULL_RESTORE_MAX_FILE_SIZE_MB = FULL_RESTORE_MAX_FILE_SIZE_BYTES / (1024 * 1024);
 
 const SetupWizard = ({
@@ -226,6 +226,17 @@ const SetupWizard = ({
         },
         [socket]
     );
+
+    const didSetupFinishAfterRestoreDisconnect = React.useCallback(async () => {
+        try {
+            const response = await fetch('/api/auth/status');
+            if (!response.ok) return false;
+            const payload = await response.json();
+            return payload?.setup_required === false;
+        } catch {
+            return false;
+        }
+    }, []);
 
     const createSetupAdmin = React.useCallback(async ({ username, password }) => {
         try {
@@ -829,9 +840,27 @@ const SetupWizard = ({
                 })
             );
         } catch (error) {
+            const restoreError = error?.message || String(error);
+            // Full restore can complete while the setup-mode socket reconnect path drops;
+            // verify setup status before surfacing a hard failure.
+            if (String(restoreError).toLowerCase().includes('socket has been disconnected')) {
+                const setupFinished = await didSetupFinishAfterRestoreDisconnect();
+                if (setupFinished) {
+                    toast.success(
+                        t('location.wizard_restore_success_recovered', {
+                            defaultValue: 'Backup restore completed. Reloading application...',
+                        })
+                    );
+                    setShowRestoreReloadBackdrop(true);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                    return;
+                }
+            }
             toast.error(
                 t('location.wizard_restore_error', {
-                    defaultValue: `Error restoring database: ${error?.message || String(error)}`,
+                    defaultValue: `Error restoring database: ${restoreError}`,
                 })
             );
         } finally {
@@ -965,30 +994,96 @@ const SetupWizard = ({
         };
     }, [callChecklist.soapy.status, soapyRuntimeState.status, t]);
 
+    const soapySummaryText = React.useMemo(() => {
+        const normalizedStatusLabel = String(soapyUiState.label || '')
+            .trim()
+            .replace(/[.!?]+$/, '')
+            .toLowerCase();
+        const normalizedDetail = String(soapyRuntimeState.detail || '')
+            .trim()
+            .replace(/[.!?]+$/, '')
+            .toLowerCase();
+        const hasServerCount = Number.isFinite(Number(soapyRuntimeState.serverCount));
+        const hasSdrCount = Number.isFinite(Number(soapyRuntimeState.sdrCount));
+
+        // Keep the Soapy card to two lines by merging optional runtime details into one compact summary row.
+        const segments = [
+            `${t('location.soapy_last_update', { defaultValue: 'Last update' })}: ${soapyLastUpdateText}`,
+            hasServerCount
+                ? `${t('location.soapy_servers_found', { defaultValue: 'Servers found' })}: ${soapyRuntimeState.serverCount}`
+                : null,
+            hasSdrCount
+                ? `${t('location.soapy_sdrs_found', { defaultValue: 'SDRs detected' })}: ${soapyRuntimeState.sdrCount}`
+                : null,
+            normalizedDetail && normalizedDetail !== normalizedStatusLabel ? soapyRuntimeState.detail : null,
+        ].filter(Boolean);
+
+        return segments.join(' • ');
+    }, [
+        soapyLastUpdateText,
+        soapyRuntimeState.detail,
+        soapyRuntimeState.sdrCount,
+        soapyRuntimeState.serverCount,
+        soapyUiState.label,
+        t,
+    ]);
+
+    const soapyAndOrbitalChecklist = React.useMemo(() => {
+        const soapyStatus = callChecklist.soapy.status;
+        const orbitalStatus = callChecklist.orbital.status;
+
+        // Aggregate two backend task starters into one checklist row.
+        let status = CALL_STATUS_IDLE;
+        if (soapyStatus === CALL_STATUS_ERROR || orbitalStatus === CALL_STATUS_ERROR) {
+            status = CALL_STATUS_ERROR;
+        } else if (soapyStatus === CALL_STATUS_PENDING || orbitalStatus === CALL_STATUS_PENDING) {
+            status = CALL_STATUS_PENDING;
+        } else if (soapyStatus === CALL_STATUS_SUCCESS && orbitalStatus === CALL_STATUS_SUCCESS) {
+            status = CALL_STATUS_SUCCESS;
+        } else if (soapyStatus === CALL_STATUS_SUCCESS || orbitalStatus === CALL_STATUS_SUCCESS) {
+            status = CALL_STATUS_PENDING;
+        }
+
+        const details = [];
+        if (callChecklist.soapy.detail) details.push(`SoapySDR: ${callChecklist.soapy.detail}`);
+        if (callChecklist.orbital.detail) details.push(`Orbital sync: ${callChecklist.orbital.detail}`);
+
+        return {
+            status,
+            detail: details.join(' • '),
+        };
+    }, [
+        callChecklist.orbital.detail,
+        callChecklist.orbital.status,
+        callChecklist.soapy.detail,
+        callChecklist.soapy.status,
+    ]);
+
     const checklistItems = React.useMemo(
         () => [
             {
                 key: 'location',
-                label: t('location.setup_call_location', { defaultValue: 'Location submission' }),
+                label: t('location.setup_call_identity_location', {
+                    defaultValue: 'Identity and location setup',
+                }),
                 value: callChecklist.location,
             },
             {
-                key: 'soapy',
-                label: t('location.setup_call_soapy', { defaultValue: 'SoapySDR discovery start' }),
-                value: callChecklist.soapy,
-            },
-            {
-                key: 'orbital',
-                label: t('location.setup_call_orbital', { defaultValue: 'Orbital sync start' }),
-                value: callChecklist.orbital,
-            },
-            {
                 key: 'admin',
-                label: t('location.setup_call_admin', { defaultValue: 'Admin user creation' }),
+                label: t('location.setup_call_admin_created', {
+                    defaultValue: 'Administrator account created',
+                }),
                 value: callChecklist.admin,
             },
+            {
+                key: 'runtime',
+                label: t('location.setup_call_runtime_started', {
+                    defaultValue: 'Soapy server discovery and orbital data sync started',
+                }),
+                value: soapyAndOrbitalChecklist,
+            },
         ],
-        [callChecklist.admin, callChecklist.location, callChecklist.orbital, callChecklist.soapy, t]
+        [callChecklist.admin, callChecklist.location, soapyAndOrbitalChecklist, t]
     );
 
     const getChecklistStatusColor = (status) => {
@@ -1100,6 +1195,7 @@ const SetupWizard = ({
                 {checklistItems.map((item) => (
                     <Box
                         key={item.key}
+                        title={item.value.detail || undefined}
                         sx={{
                             px: 1,
                             py: 0.75,
@@ -1113,11 +1209,16 @@ const SetupWizard = ({
                             spacing={0.5}
                             alignItems="center"
                             justifyContent="space-between"
+                            sx={{ minWidth: 0 }}
                         >
-                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                            <Typography
+                                variant="body2"
+                                noWrap
+                                sx={{ fontWeight: 600, lineHeight: 1.2, minWidth: 0, flex: 1, pr: 0.75 }}
+                            >
                                 {item.label}
                             </Typography>
-                            <Stack direction="row" spacing={0.35} alignItems="center">
+                            <Stack direction="row" spacing={0.35} alignItems="center" sx={{ flexShrink: 0 }}>
                                 {item.value.status === CALL_STATUS_SUCCESS && (
                                     <CheckCircleOutlineIcon
                                         fontSize="small"
@@ -1138,17 +1239,13 @@ const SetupWizard = ({
                                 )}
                                 <Typography
                                     variant="caption"
+                                    noWrap
                                     sx={{ color: getChecklistStatusColor(item.value.status), lineHeight: 1.1 }}
                                 >
                                     {getChecklistStatusLabel(item.value.status)}
                                 </Typography>
                             </Stack>
                         </Stack>
-                        {item.value.detail && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
-                                {item.value.detail}
-                            </Typography>
-                        )}
                     </Box>
                 ))}
             </Stack>
@@ -1253,29 +1350,15 @@ const SetupWizard = ({
                             </Typography>
                         </Box>
                     </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
-                        {t('location.soapy_last_update', { defaultValue: 'Last update' })}: {soapyLastUpdateText}
+                    <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        title={soapySummaryText}
+                        sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}
+                    >
+                        {soapySummaryText}
                     </Typography>
-                    {(Number.isFinite(Number(soapyRuntimeState.serverCount)) ||
-                        Number.isFinite(Number(soapyRuntimeState.sdrCount))) && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2, lineHeight: 1.2 }}>
-                            {Number.isFinite(Number(soapyRuntimeState.serverCount))
-                                ? `${t('location.soapy_servers_found', { defaultValue: 'Servers found' })}: ${soapyRuntimeState.serverCount}`
-                                : null}
-                            {Number.isFinite(Number(soapyRuntimeState.serverCount)) &&
-                            Number.isFinite(Number(soapyRuntimeState.sdrCount))
-                                ? ' • '
-                                : ''}
-                            {Number.isFinite(Number(soapyRuntimeState.sdrCount))
-                                ? `${t('location.soapy_sdrs_found', { defaultValue: 'SDRs detected' })}: ${soapyRuntimeState.sdrCount}`
-                                : null}
-                        </Typography>
-                    )}
-                    {soapyRuntimeState.detail && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2, lineHeight: 1.2 }}>
-                            {soapyRuntimeState.detail}
-                        </Typography>
-                    )}
                 </Box>
             </Stack>
         </SettingsSection>
