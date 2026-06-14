@@ -41,7 +41,7 @@ import { GroundStationLogoGreenBlue } from '../common/dataurl-icons.jsx';
 import { useSocket } from '../common/socket.jsx';
 import { fetchLocationForUserId } from '../settings/location-slice.jsx';
 import LocationPage from '../settings/location-form.jsx';
-import { loginUser, setupAdmin } from './auth-slice.jsx';
+import { loadAuthStatus, loginUser, setupAdmin } from './auth-slice.jsx';
 
 const shellSx = {
     minHeight: '100vh',
@@ -130,7 +130,7 @@ function AuthCardHeader({ title, description }) {
     );
 }
 
-function AdminRegistrationForm({ title, description, station }) {
+export function AdminRegistrationForm({ title, description, station }) {
     const dispatch = useDispatch();
     const { loadingAction, error } = useSelector((state) => state.auth);
 
@@ -301,24 +301,36 @@ export function LoginScreen() {
 export function SetupScreen() {
     const dispatch = useDispatch();
     const { socket } = useSocket();
-    const location = useSelector((state) => state.location.location);
-    const authStation = useSelector((state) => state.auth.station);
-    const hasLocation = Boolean(location && location.lat != null && location.lon != null);
 
     const [locationChecked, setLocationChecked] = React.useState(false);
-    const [wizardCompleted, setWizardCompleted] = React.useState(false);
-
-    React.useEffect(() => {
-        if (hasLocation) {
-            setWizardCompleted(true);
-        }
-    }, [hasLocation]);
+    const [setupConnectionState, setSetupConnectionState] = React.useState(
+        socket?.connected ? 'connected' : 'connecting'
+    );
+    const [reconnectAttempt, setReconnectAttempt] = React.useState(0);
 
     React.useEffect(() => {
         if (!socket) return undefined;
 
         let mounted = true;
-        const loadLocation = async () => {
+        const refreshSetupStateAndLocation = async () => {
+            if (mounted) {
+                setSetupConnectionState('connected');
+                setReconnectAttempt(0);
+            }
+
+            try {
+                const authStatus = await dispatch(loadAuthStatus()).unwrap();
+                // If setup no longer required, App will switch away from setup flow.
+                if (authStatus && !authStatus.setup_required) {
+                    if (mounted) {
+                        setLocationChecked(true);
+                    }
+                    return;
+                }
+            } catch {
+                // If auth status refresh fails, continue with setup location fetch.
+            }
+
             try {
                 await dispatch(
                     fetchLocationForUserId({ socket, suppressNotFoundWarning: true })
@@ -332,25 +344,58 @@ export function SetupScreen() {
             }
         };
 
+        const handleDisconnect = () => {
+            if (!mounted) return;
+            setSetupConnectionState('disconnected');
+        };
+
+        const handleReconnectAttempt = (attempt) => {
+            if (!mounted) return;
+            setSetupConnectionState('reconnecting');
+            setReconnectAttempt(Number(attempt) || 0);
+        };
+
+        const handleConnectError = () => {
+            if (!mounted) return;
+            setSetupConnectionState('disconnected');
+        };
+
         if (socket.connected) {
-            loadLocation();
+            void refreshSetupStateAndLocation();
+        } else if (mounted) {
+            setSetupConnectionState('connecting');
         }
 
-        socket.on('connect', loadLocation);
+        socket.on('connect', refreshSetupStateAndLocation);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('reconnect_attempt', handleReconnectAttempt);
+        socket.on('connect_error', handleConnectError);
+        socket.on('reconnect_error', handleConnectError);
         return () => {
             mounted = false;
-            socket.off('connect', loadLocation);
+            socket.off('connect', refreshSetupStateAndLocation);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('reconnect_attempt', handleReconnectAttempt);
+            socket.off('connect_error', handleConnectError);
+            socket.off('reconnect_error', handleConnectError);
         };
     }, [dispatch, socket]);
 
-    const setupStationIdentity = React.useMemo(() => {
-        const locationName = String(location?.name || '').trim() || null;
-        const locationCallsign = String(location?.callsign || '').trim().toUpperCase() || null;
-        if (locationName || locationCallsign) {
-            return { name: locationName, callsign: locationCallsign };
+    const wizardBackendReady = setupConnectionState === 'connected';
+    const connectionBanner = (() => {
+        if (wizardBackendReady) {
+            return null;
         }
-        return normalizeStationIdentity(authStation);
-    }, [authStation, location]);
+        if (setupConnectionState === 'reconnecting') {
+            return reconnectAttempt > 0
+                ? `Backend disconnected. Reconnecting (attempt ${reconnectAttempt})...`
+                : 'Backend disconnected. Reconnecting...';
+        }
+        if (setupConnectionState === 'disconnected') {
+            return 'Backend disconnected. Reconnecting...';
+        }
+        return 'Connecting to backend...';
+    })();
 
     if (!locationChecked) {
         return (
@@ -363,69 +408,69 @@ export function SetupScreen() {
         );
     }
 
-    if (!wizardCompleted) {
-        return (
-            <Dialog
-                open
-                onClose={() => {}}
-                disableEscapeKeyDown
-                aria-labelledby="setup-location-dialog-title"
-                maxWidth="lg"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: 2,
-                        boxShadow: 24,
-                        height: 'min(800px, calc(100vh - 24px))',
-                        maxHeight: 'calc(100vh - 24px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                    },
+    return (
+        <Dialog
+            open
+            onClose={() => {}}
+            disableEscapeKeyDown
+            aria-labelledby="setup-flow-dialog-title"
+            maxWidth="lg"
+            fullWidth
+            PaperProps={{
+                sx: {
+                    borderRadius: 2,
+                    boxShadow: 24,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: 'min(800px, calc(100vh - 24px))',
+                    maxHeight: 'calc(100vh - 24px)',
+                },
+            }}
+        >
+            <DialogTitle
+                id="setup-flow-dialog-title"
+                sx={{
+                    py: 1.5,
+                    px: 2.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    lineHeight: 1.2,
+                    fontSize: '1.35rem',
+                    fontWeight: 600,
+                    color: 'primary.main',
                 }}
             >
-                <DialogTitle
-                    id="setup-location-dialog-title"
-                    sx={{
-                        py: 1.5,
-                        px: 2.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        lineHeight: 1.2,
-                        fontSize: '1.35rem',
-                        fontWeight: 600,
-                        color: 'primary.main',
-                    }}
-                >
-                    Ground Station Setup
-                </DialogTitle>
-                <DialogContent
-                    dividers
-                    sx={{
-                        px: 2.5,
-                        pt: '10px !important',
-                        pb: 2.5,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: 'hidden',
-                    }}
-                >
-                    <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-                        <LocationPage wizardMode onWizardCompleted={() => setWizardCompleted(true)} />
-                    </Box>
-                </DialogContent>
-            </Dialog>
-        );
-    }
-
-    return (
-        <Box sx={shellSx}>
-            <AdminRegistrationForm
-                title="Create Administrator Account"
-                description="Setup is incomplete. Create the first admin account to unlock the dashboard."
-                station={setupStationIdentity}
-            />
-        </Box>
+                Ground Station Setup
+            </DialogTitle>
+            <DialogContent
+                dividers
+                sx={{
+                    px: 2.5,
+                    pt: '10px !important',
+                    pb: 2.5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                }}
+            >
+                {connectionBanner && (
+                    <Alert
+                        severity={setupConnectionState === 'connecting' ? 'info' : 'warning'}
+                        sx={{ mb: 1 }}
+                    >
+                        {connectionBanner}
+                    </Alert>
+                )}
+                <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+                    <LocationPage
+                        wizardMode
+                        wizardRequireAdminSetup
+                        wizardBackendReady={wizardBackendReady}
+                    />
+                </Box>
+            </DialogContent>
+        </Dialog>
     );
 }

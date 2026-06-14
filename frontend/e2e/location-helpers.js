@@ -100,7 +100,20 @@ export const completeLocationWizardIfVisible = async (page, { waitForMs = 5000 }
     throw new Error('Location wizard finish button is disabled.');
   }
   await finishButton.click();
-  await wizardDialog.waitFor({ state: 'hidden', timeout: 15000 });
+
+  // Runtime location setup closes the dialog after save.
+  // Bootstrap setup transitions inside the same dialog to the admin account step.
+  const dialogHiddenAfterSave = await wizardDialog.waitFor({ state: 'hidden', timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!dialogHiddenAfterSave) {
+    const adminStepVisible = await wizardDialog.getByRole('button', { name: /create admin account/i }).first()
+      .isVisible()
+      .catch(() => false);
+    if (!adminStepVisible) {
+      throw new Error('Location wizard did not close or transition to admin setup after save.');
+    }
+  }
 
   return true;
 };

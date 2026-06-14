@@ -88,6 +88,7 @@ import {
 import { updateMetrics } from '../components/performance/performance-slice.jsx';
 import { setSystemInfo } from '../components/settings/system-info-slice.jsx';
 import { setRuntimeSnapshot } from '../components/settings/sessions-slice.jsx';
+import { loadAuthStatus } from '../components/auth/auth-slice.jsx';
 import { fetchSatelliteGroups } from '../components/earthview/earthview-slice.jsx';
 import { addTranscription } from '../components/waterfall/transcription-slice.jsx';
 import { fetchSoapySDRServers } from '../components/hardware/sdr-slice.jsx';
@@ -145,6 +146,20 @@ export const useSocketEventHandlers = (socket, enabled = true) => {
             dispatch(setReConnectAttempt(0));
             dispatch(setInitialDataLoading(true));
             dispatch(setInitialDataProgress({ completed: 0, total: 0 }));
+
+            // Re-validate auth/setup state after each reconnect.
+            // This prevents stale runtime UI when backend setup state changed
+            // (for example, reconnecting against a fresh temp DB).
+            try {
+                const authStatus = await dispatch(loadAuthStatus()).unwrap();
+                if (authStatus?.setup_required || !authStatus?.authenticated) {
+                    dispatch(setInitialDataLoading(false));
+                    dispatch(setInitialDataProgress({ completed: 0, total: 0 }));
+                    return;
+                }
+            } catch {
+                // If status refresh fails, continue with runtime bootstrap path.
+            }
 
             // Update current session ID and clean up stale decoders from previous sessions
             store.dispatch(setCurrentSessionId(socket.id));
