@@ -93,12 +93,14 @@ def register_socketio_handlers(sio):
             logger.warning(f"Rejecting unauthenticated socket connection sid={sid}")
             return False
 
-        if token:
-            SOCKET_TOKENS[sid] = token
-        else:
-            SOCKET_TOKENS.pop(sid, None)
-
         if auth_context:
+            # Keep token cache only for sessions that have been successfully authenticated.
+            # Setup-mode sockets can arrive with stale cookies from deleted users; retaining
+            # those invalid tokens would cause forced disconnects once setup completes.
+            if token:
+                SOCKET_TOKENS[sid] = token
+            else:
+                SOCKET_TOKENS.pop(sid, None)
             SOCKET_AUTH[sid] = auth_context
             logger.info(
                 "Authenticated socket sid=%s as user=%s role=%s",
@@ -107,6 +109,8 @@ def register_socketio_handlers(sio):
                 auth_context.get("role"),
             )
         else:
+            # No valid auth context for this socket session.
+            SOCKET_TOKENS.pop(sid, None)
             # Setup mode allows temporary unauthenticated access for onboarding-only commands.
             SOCKET_AUTH[sid] = {}
 

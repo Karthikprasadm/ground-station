@@ -171,3 +171,46 @@ async def test_setup_socket_without_token_is_not_force_disconnected_after_setup_
     assert reply["success"] is False
     assert reply["error"] == "Authentication required."
     assert sio.disconnect_calls == []
+
+
+@pytest.mark.asyncio
+async def test_setup_socket_with_stale_token_is_not_force_disconnected_after_setup_completes(
+    monkeypatch,
+):
+    sio = _FakeSio()
+    sockethandlers.register_socketio_handlers(sio)
+    connect = sio.handlers["connect"]
+    api_call = sio.handlers["api.call"]
+
+    setup_required_state = {"value": True}
+
+    async def _is_setup_required(force_refresh: bool = False):
+        del force_refresh
+        return setup_required_state["value"]
+
+    async def _authenticate_token(token: str | None):
+        # Simulate stale/invalid cookie token while setup is still required.
+        assert token == "stale-token"
+        return None
+
+    async def _dispatch_request(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError(
+            "dispatch_request should not be called once setup mode ends without auth"
+        )
+
+    monkeypatch.setattr(sockethandlers.authsvc, "is_setup_required", _is_setup_required)
+    monkeypatch.setattr(sockethandlers.authsvc, "authenticate_token", _authenticate_token)
+    monkeypatch.setattr(sockethandlers, "dispatch_request", _dispatch_request)
+
+    connect_reply = await connect(
+        "sid-4", {"REMOTE_ADDR": "127.0.0.1", "HTTP_COOKIE": "gs_session=stale-token"}, None
+    )
+    assert connect_reply is not False
+    assert "sid-4" not in sockethandlers.SOCKET_TOKENS
+
+    setup_required_state["value"] = False
+    reply = await api_call("sid-4", {"cmd": "setup.status", "data": None})
+    assert reply["success"] is False
+    assert reply["error"] == "Authentication required."
+    assert sio.disconnect_calls == []

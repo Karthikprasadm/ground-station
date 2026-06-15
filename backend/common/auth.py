@@ -31,7 +31,7 @@ from sqlalchemy import and_, delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 from db import AsyncSessionLocal
-from db.models import AuthSessions, UserRole, Users
+from db.models import AuthSessions, Locations, UserRole, Users
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _username_regex = re.compile(r"^[a-zA-Z0-9._-]{3,64}$")
@@ -43,6 +43,9 @@ _lock_minutes = 10
 _setup_cache_ttl_seconds = 3.0
 _setup_cache: Dict[str, Any] = {"value": True, "expires_at": 0.0}
 AUTH_SESSION_COOKIE_NAME = "gs_session"
+SETUP_MODE_NONE = "none"
+SETUP_MODE_FULL = "full_setup"
+SETUP_MODE_ADMIN_RECOVERY = "admin_recovery"
 
 setup_allowed_commands = {
     "get-locations",
@@ -273,6 +276,31 @@ async def is_setup_required(force_refresh: bool = False) -> bool:
     _setup_cache["value"] = setup_required
     _setup_cache["expires_at"] = now_ts + _setup_cache_ttl_seconds
     return setup_required
+
+
+async def resolve_setup_mode(force_refresh: bool = False) -> str:
+    """
+    Classify setup UX surface when there are zero users.
+
+    Existing deployments that lost users should not be forced through full first-time setup.
+    We currently use persisted location presence as the migration-safe signal.
+    """
+    setup_required = await is_setup_required(force_refresh=force_refresh)
+    if not setup_required:
+        return SETUP_MODE_NONE
+
+    try:
+        async with AsyncSessionLocal() as session:
+            existing_location_id = (
+                await session.execute(select(Locations.id).limit(1))
+            ).scalar_one_or_none()
+            if existing_location_id is not None:
+                return SETUP_MODE_ADMIN_RECOVERY
+    except Exception:
+        # Fall back to the full setup flow whenever detection cannot be evaluated.
+        pass
+
+    return SETUP_MODE_FULL
 
 
 def _set_setup_cache(value: bool) -> None:

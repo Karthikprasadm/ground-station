@@ -93,6 +93,7 @@ const progressSweep = keyframes`
     0% { transform: translateX(-100%); }
     100% { transform: translateX(333%); }
 `;
+const SETUP_MODE_ADMIN_RECOVERY = 'admin_recovery';
 
 function normalizeStationIdentity(station) {
     if (!station || typeof station !== 'object') {
@@ -105,23 +106,21 @@ function normalizeStationIdentity(station) {
 
 function StationIdentityPanel({ station, showCallsign = true }) {
     const { name, callsign } = normalizeStationIdentity(station);
-    if (!name && (!showCallsign || !callsign)) {
-        return null;
-    }
+    const stationName = name || 'Ground Station';
+    const renderedCallsign = showCallsign ? callsign : null;
 
     return (
         <Box sx={stationPanelSx}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                Ground Station
+            <Typography variant="body2" align="center" fontWeight={700}>
+                {stationName}
             </Typography>
-            {name && (
-                <Typography variant="body2" fontWeight={600}>
-                    {name}
-                </Typography>
-            )}
-            {showCallsign && callsign && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    Callsign: {callsign}
+            {renderedCallsign && (
+                <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', textAlign: 'center', mt: 0.25 }}
+                >
+                    {renderedCallsign}
                 </Typography>
             )}
         </Box>
@@ -149,7 +148,13 @@ function AuthCardHeader({ title, description }) {
     );
 }
 
-export function AdminRegistrationForm({ title, description, station }) {
+export function AdminRegistrationForm({
+    title,
+    description,
+    station,
+    showCallsign = true,
+    cardMaxWidth = 500,
+}) {
     const dispatch = useDispatch();
     const { loadingAction, error } = useSelector((state) => state.auth);
 
@@ -184,11 +189,11 @@ export function AdminRegistrationForm({ title, description, station }) {
     };
 
     return (
-        <Card sx={cardSx}>
+        <Card sx={{ ...cardSx, maxWidth: cardMaxWidth }}>
             <CardContent sx={{ p: 3 }}>
                 <Stack spacing={2}>
                     <AuthCardHeader title={title} description={description} />
-                    <StationIdentityPanel station={station} />
+                    <StationIdentityPanel station={station} showCallsign={showCallsign} />
 
                     {(localError || error) && (
                         <Alert severity="error">{localError || error}</Alert>
@@ -233,7 +238,6 @@ export function AdminRegistrationForm({ title, description, station }) {
 export function LoginScreen() {
     const dispatch = useDispatch();
     const { loadingAction, error, station } = useSelector((state) => state.auth);
-    const stationName = normalizeStationIdentity(station).name || 'Ground Station';
 
     const [username, setUsername] = React.useState('');
     const [password, setPassword] = React.useState('');
@@ -267,11 +271,7 @@ export function LoginScreen() {
                             title="Sign In"
                             description="Authentication is required to use this Ground Station instance."
                         />
-                        <Box sx={stationPanelSx}>
-                            <Typography variant="body2" align="center" fontWeight={700}>
-                                {stationName}
-                            </Typography>
-                        </Box>
+                        <StationIdentityPanel station={station} showCallsign={false} />
                         {(localError || error) && (
                             <Alert severity="error">{localError || error}</Alert>
                         )}
@@ -317,7 +317,21 @@ export function LoginScreen() {
     );
 }
 
-export function SetupScreen() {
+function SetupAdminRecoveryScreen({ station }) {
+    return (
+        <Box sx={shellSx}>
+            <AdminRegistrationForm
+                title="Create Administrator Account"
+                description="User accounts are missing. Create a new admin account to restore access."
+                station={station}
+                showCallsign={false}
+                cardMaxWidth={350}
+            />
+        </Box>
+    );
+}
+
+function SetupWizardScreen() {
     const dispatch = useDispatch();
     const { socket } = useSocket();
 
@@ -600,4 +614,13 @@ export function SetupScreen() {
             </DialogContent>
         </Dialog>
     );
+}
+
+export function SetupScreen() {
+    const station = useSelector((state) => state.auth.station);
+    const setupMode = useSelector((state) => String(state.auth.setupMode || '').trim().toLowerCase());
+    if (setupMode === SETUP_MODE_ADMIN_RECOVERY) {
+        return <SetupAdminRecoveryScreen station={station} />;
+    }
+    return <SetupWizardScreen />;
 }

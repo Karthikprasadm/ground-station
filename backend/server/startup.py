@@ -383,7 +383,8 @@ class AuthenticatedStaticFiles:
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
     """Return setup/authentication status for frontend app bootstrapping."""
-    setup_required = await authsvc.is_setup_required()
+    setup_mode = await authsvc.resolve_setup_mode()
+    setup_required = setup_mode != authsvc.SETUP_MODE_NONE
     station_identity = await _load_station_identity()
     auth_context = await _require_request_auth(
         request,
@@ -394,6 +395,7 @@ async def auth_status(request: Request):
     )
     return {
         "setup_required": setup_required,
+        "setup_mode": setup_mode,
         "authenticated": bool(auth_context),
         "user": auth_context,
         "station": station_identity,

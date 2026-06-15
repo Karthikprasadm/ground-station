@@ -20,6 +20,9 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 const AUTH_API_BASE = '/api/auth';
+const SETUP_MODE_NONE = 'none';
+const SETUP_MODE_FULL = 'full_setup';
+const SETUP_MODE_ADMIN_RECOVERY = 'admin_recovery';
 
 const parseErrorMessage = async (response, fallbackMessage = 'Request failed.') => {
     try {
@@ -232,6 +235,7 @@ const authSlice = createSlice({
         authenticated: false,
         showLogoutConfirmation: true,
         setupRequired: false,
+        setupMode: SETUP_MODE_NONE,
         statusInitialized: false,
         loadingStatus: true,
         loadingAction: false,
@@ -243,6 +247,7 @@ const authSlice = createSlice({
         clearAuthState: (state) => {
             state.user = null;
             state.authenticated = false;
+            state.setupMode = SETUP_MODE_NONE;
             state.error = null;
         },
         setShowLogoutConfirmation: (state, action) => {
@@ -260,9 +265,18 @@ const authSlice = createSlice({
             })
             .addCase(loadAuthStatus.fulfilled, (state, action) => {
                 const payload = action.payload || {};
+                const setupMode = String(payload.setup_mode || '').trim().toLowerCase();
                 state.loadingStatus = false;
                 state.statusInitialized = true;
                 state.setupRequired = Boolean(payload.setup_required);
+                if (!state.setupRequired) {
+                    state.setupMode = SETUP_MODE_NONE;
+                } else if (setupMode === SETUP_MODE_ADMIN_RECOVERY) {
+                    state.setupMode = SETUP_MODE_ADMIN_RECOVERY;
+                } else {
+                    // Backward compatibility for backend versions that do not yet return setup_mode.
+                    state.setupMode = SETUP_MODE_FULL;
+                }
                 state.authenticated = Boolean(payload.authenticated);
                 state.user = payload.user || null;
                 state.station = payload.station || null;
@@ -273,6 +287,7 @@ const authSlice = createSlice({
                 state.authenticated = false;
                 state.user = null;
                 state.station = null;
+                state.setupMode = SETUP_MODE_NONE;
                 state.error = action.payload || action.error?.message || 'Failed to load auth status.';
             })
             .addCase(loginUser.pending, (state) => {
@@ -282,6 +297,7 @@ const authSlice = createSlice({
             .addCase(loginUser.fulfilled, (state, action) => {
                 state.loadingAction = false;
                 state.setupRequired = false;
+                state.setupMode = SETUP_MODE_NONE;
                 state.authenticated = true;
                 state.user = action.payload?.user || null;
             })
@@ -296,6 +312,7 @@ const authSlice = createSlice({
             .addCase(setupAdmin.fulfilled, (state, action) => {
                 state.loadingAction = false;
                 state.setupRequired = false;
+                state.setupMode = SETUP_MODE_NONE;
                 state.authenticated = true;
                 state.user = action.payload?.user || null;
             })
