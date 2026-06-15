@@ -59,6 +59,8 @@ _register_all_handlers()
 
 # Auth context keyed by socket session id.
 SOCKET_AUTH: Dict[str, Dict[str, Any]] = {}
+# Raw bearer token keyed by socket session id (used for per-request revalidation).
+SOCKET_TOKENS: Dict[str, str] = {}
 
 
 def register_socketio_handlers(sio):
@@ -87,6 +89,11 @@ def register_socketio_handlers(sio):
         if not setup_required and auth_context is None:
             logger.warning(f"Rejecting unauthenticated socket connection sid={sid}")
             return False
+
+        if token:
+            SOCKET_TOKENS[sid] = token
+        else:
+            SOCKET_TOKENS.pop(sid, None)
 
         if auth_context:
             SOCKET_AUTH[sid] = auth_context
@@ -126,6 +133,7 @@ def register_socketio_handlers(sio):
         del environ
         session_env = SESSIONS.pop(sid, {})
         SOCKET_AUTH.pop(sid, None)
+        SOCKET_TOKENS.pop(sid, None)
         remote_addr = session_env.get("REMOTE_ADDR", "unknown")
         logger.info(f"Client {sid} from {remote_addr} disconnected")
         # Clean up session via SessionService (stops processes and clears tracker including metadata).
@@ -144,7 +152,41 @@ def register_socketio_handlers(sio):
 
         normalized_cmd = cmd.strip()
         logger.debug(f"Received api.call from sid={sid}, cmd={normalized_cmd}")
-        auth_context = SOCKET_AUTH.get(sid) or None
+        setup_required = await authsvc.is_setup_required()
+
+        # Re-authenticate on every RPC so logout/disable/role changes apply immediately.
+        socket_token = SOCKET_TOKENS.get(sid)
+        auth_context = None
+        if socket_token:
+            auth_context = await authsvc.authenticate_token(socket_token)
+            if auth_context:
+                SOCKET_AUTH[sid] = auth_context
+            else:
+                SOCKET_AUTH.pop(sid, None)
+
+        if not setup_required and auth_context is None:
+            # Re-authenticated sessions that became invalid (logout/revoke/disable) should be
+            # disconnected immediately so stale authenticated sockets cannot continue.
+            #
+            # Setup-mode sockets have no token by design; they may still be connected when setup
+            # flips to completed. For those sockets, return auth required without disconnecting so
+            # setup UI can proceed to explicit login.
+            if socket_token:
+                logger.warning(
+                    "Disconnecting socket sid=%s due to invalid session during api.call cmd=%s",
+                    sid,
+                    normalized_cmd,
+                )
+                SOCKET_AUTH.pop(sid, None)
+                SOCKET_TOKENS.pop(sid, None)
+                try:
+                    await sio.disconnect(sid)
+                except Exception:
+                    logger.debug(
+                        "Failed to disconnect sid=%s after auth invalidation", sid, exc_info=True
+                    )
+            return {"success": False, "data": None, "error": "Authentication required."}
+
         reply = await dispatch_request(
             sio,
             normalized_cmd,

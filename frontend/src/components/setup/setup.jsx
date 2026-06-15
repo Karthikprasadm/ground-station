@@ -864,17 +864,27 @@ const SetupWizard = ({
             .trim()
             .replace(/[.!?]+$/, '')
             .toLowerCase();
-        const hasServerCount = Number.isFinite(Number(soapyRuntimeState.serverCount));
-        const hasSdrCount = Number.isFinite(Number(soapyRuntimeState.sdrCount));
+        const parsedServerCount = (
+            soapyRuntimeState.serverCount == null
+                ? null
+                : Number(soapyRuntimeState.serverCount)
+        );
+        const parsedSdrCount = (
+            soapyRuntimeState.sdrCount == null
+                ? null
+                : Number(soapyRuntimeState.sdrCount)
+        );
+        const hasServerCount = parsedServerCount !== null && Number.isFinite(parsedServerCount);
+        const hasSdrCount = parsedSdrCount !== null && Number.isFinite(parsedSdrCount);
 
         // Keep the Soapy card to two lines by merging optional runtime details into one compact summary row.
         const segments = [
             `${t('location.soapy_last_update', { defaultValue: 'Last update' })}: ${soapyLastUpdateText}`,
             hasServerCount
-                ? `${t('location.soapy_servers_found', { defaultValue: 'Servers found' })}: ${soapyRuntimeState.serverCount}`
+                ? `${t('location.soapy_servers_found', { defaultValue: 'Servers found' })}: ${parsedServerCount}`
                 : null,
             hasSdrCount
-                ? `${t('location.soapy_sdrs_found', { defaultValue: 'SDRs detected' })}: ${soapyRuntimeState.sdrCount}`
+                ? `${t('location.soapy_sdrs_found', { defaultValue: 'SDRs detected' })}: ${parsedSdrCount}`
                 : null,
             normalizedDetail && normalizedDetail !== normalizedStatusLabel ? soapyRuntimeState.detail : null,
         ].filter(Boolean);
