@@ -1499,9 +1499,7 @@ const SetupWizard = ({
         return '';
     })();
 
-    const saveButtonLabel = locationSaving
-        ? t('location.state_saving', { defaultValue: 'Saving...' })
-        : t('location.finish_setup', { defaultValue: 'Save and Continue' });
+    const saveButtonLabel = 'finalize';
 
     return (
         <>
@@ -1513,13 +1511,11 @@ const SetupWizard = ({
                             top: 0,
                             zIndex: 3,
                             py: 0.75,
-                            mb: '2em',
+                            mb: '0.5em',
                             backgroundColor: (theme) =>
                                 theme.palette.mode === 'dark'
                                     ? theme.palette.background.elevated
                                     : theme.palette.background.paper,
-                            borderBottom: '1px solid',
-                            borderColor: 'divider',
                         }}
                     >
                         <Stepper activeStep={wizardCurrentOrderIndex} alternativeLabel>
