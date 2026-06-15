@@ -30,25 +30,22 @@ const parseErrorMessage = async (response, fallbackMessage = 'Request failed.') 
     }
 };
 
-const buildHeaders = (token, hasJsonBody = false) => {
+const buildHeaders = (hasJsonBody = false) => {
     const headers = {};
     if (hasJsonBody) {
         headers['Content-Type'] = 'application/json';
-    }
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
     }
     return headers;
 };
 
 export const loadAuthStatus = createAsyncThunk(
     'auth/loadStatus',
-    async (_unused, { getState, rejectWithValue }) => {
-        const token = getState()?.auth?.token || null;
+    async (_unused, { rejectWithValue }) => {
         try {
             const response = await fetch(`${AUTH_API_BASE}/status`, {
                 method: 'GET',
-                headers: buildHeaders(token, false),
+                headers: buildHeaders(false),
+                credentials: 'same-origin',
             });
             if (!response.ok) {
                 return rejectWithValue(await parseErrorMessage(response, 'Failed to get auth status.'));
@@ -66,7 +63,8 @@ export const loginUser = createAsyncThunk(
         try {
             const response = await fetch(`${AUTH_API_BASE}/login`, {
                 method: 'POST',
-                headers: buildHeaders(null, true),
+                headers: buildHeaders(true),
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     username,
                     password,
@@ -89,7 +87,8 @@ export const setupAdmin = createAsyncThunk(
         try {
             const response = await fetch(`${AUTH_API_BASE}/setup-admin`, {
                 method: 'POST',
-                headers: buildHeaders(null, true),
+                headers: buildHeaders(true),
+                credentials: 'same-origin',
                 body: JSON.stringify({ username, password }),
             });
             if (!response.ok) {
@@ -106,16 +105,12 @@ export const setupAdmin = createAsyncThunk(
 
 export const logoutUser = createAsyncThunk(
     'auth/logout',
-    async (_unused, { getState }) => {
-        const token = getState()?.auth?.token || null;
-        if (!token) {
-            return { success: true };
-        }
-
+    async () => {
         try {
             await fetch(`${AUTH_API_BASE}/logout`, {
                 method: 'POST',
-                headers: buildHeaders(token, false),
+                headers: buildHeaders(false),
+                credentials: 'same-origin',
             });
         } catch {
             // Logout should still clear local auth state even when network request fails.
@@ -126,12 +121,12 @@ export const logoutUser = createAsyncThunk(
 
 export const fetchUsers = createAsyncThunk(
     'auth/fetchUsers',
-    async (_unused, { getState, rejectWithValue }) => {
-        const token = getState()?.auth?.token || null;
+    async (_unused, { rejectWithValue }) => {
         try {
             const response = await fetch(`${AUTH_API_BASE}/users`, {
                 method: 'GET',
-                headers: buildHeaders(token, false),
+                headers: buildHeaders(false),
+                credentials: 'same-origin',
             });
             if (!response.ok) {
                 return rejectWithValue(await parseErrorMessage(response, 'Failed to fetch users.'));
@@ -146,12 +141,12 @@ export const fetchUsers = createAsyncThunk(
 
 export const createUser = createAsyncThunk(
     'auth/createUser',
-    async ({ username, password, role }, { getState, rejectWithValue }) => {
-        const token = getState()?.auth?.token || null;
+    async ({ username, password, role }, { rejectWithValue }) => {
         try {
             const response = await fetch(`${AUTH_API_BASE}/users`, {
                 method: 'POST',
-                headers: buildHeaders(token, true),
+                headers: buildHeaders(true),
+                credentials: 'same-origin',
                 body: JSON.stringify({ username, password, role }),
             });
             if (!response.ok) {
@@ -167,12 +162,12 @@ export const createUser = createAsyncThunk(
 
 export const updateUser = createAsyncThunk(
     'auth/updateUser',
-    async ({ userId, role, isActive }, { getState, rejectWithValue }) => {
-        const token = getState()?.auth?.token || null;
+    async ({ userId, role, isActive }, { rejectWithValue }) => {
         try {
             const response = await fetch(`${AUTH_API_BASE}/users/${userId}`, {
                 method: 'PATCH',
-                headers: buildHeaders(token, true),
+                headers: buildHeaders(true),
+                credentials: 'same-origin',
                 body: JSON.stringify({ role, is_active: isActive }),
             });
             if (!response.ok) {
@@ -188,12 +183,12 @@ export const updateUser = createAsyncThunk(
 
 export const resetUserPassword = createAsyncThunk(
     'auth/resetUserPassword',
-    async ({ userId, password }, { getState, rejectWithValue }) => {
-        const token = getState()?.auth?.token || null;
+    async ({ userId, password }, { rejectWithValue }) => {
         try {
             const response = await fetch(`${AUTH_API_BASE}/users/${userId}/reset-password`, {
                 method: 'POST',
-                headers: buildHeaders(token, true),
+                headers: buildHeaders(true),
+                credentials: 'same-origin',
                 body: JSON.stringify({ password }),
             });
             if (!response.ok) {
@@ -211,12 +206,12 @@ export const resetUserPassword = createAsyncThunk(
 
 export const deleteUser = createAsyncThunk(
     'auth/deleteUser',
-    async ({ userId }, { getState, rejectWithValue }) => {
-        const token = getState()?.auth?.token || null;
+    async ({ userId }, { rejectWithValue }) => {
         try {
             const response = await fetch(`${AUTH_API_BASE}/users/${userId}`, {
                 method: 'DELETE',
-                headers: buildHeaders(token, false),
+                headers: buildHeaders(false),
+                credentials: 'same-origin',
             });
             if (!response.ok) {
                 return rejectWithValue(await parseErrorMessage(response, 'Failed to delete user.'));
@@ -232,7 +227,6 @@ export const deleteUser = createAsyncThunk(
 const authSlice = createSlice({
     name: 'auth',
     initialState: {
-        token: null,
         user: null,
         station: null,
         authenticated: false,
@@ -247,7 +241,6 @@ const authSlice = createSlice({
     },
     reducers: {
         clearAuthState: (state) => {
-            state.token = null;
             state.user = null;
             state.authenticated = false;
             state.error = null;
@@ -273,10 +266,6 @@ const authSlice = createSlice({
                 state.authenticated = Boolean(payload.authenticated);
                 state.user = payload.user || null;
                 state.station = payload.station || null;
-
-                if (!state.authenticated) {
-                    state.token = null;
-                }
             })
             .addCase(loadAuthStatus.rejected, (state, action) => {
                 state.loadingStatus = false;
@@ -284,7 +273,6 @@ const authSlice = createSlice({
                 state.authenticated = false;
                 state.user = null;
                 state.station = null;
-                state.token = null;
                 state.error = action.payload || action.error?.message || 'Failed to load auth status.';
             })
             .addCase(loginUser.pending, (state) => {
@@ -295,7 +283,6 @@ const authSlice = createSlice({
                 state.loadingAction = false;
                 state.setupRequired = false;
                 state.authenticated = true;
-                state.token = action.payload?.token || null;
                 state.user = action.payload?.user || null;
             })
             .addCase(loginUser.rejected, (state, action) => {
@@ -310,7 +297,6 @@ const authSlice = createSlice({
                 state.loadingAction = false;
                 state.setupRequired = false;
                 state.authenticated = true;
-                state.token = action.payload?.token || null;
                 state.user = action.payload?.user || null;
             })
             .addCase(setupAdmin.rejected, (state, action) => {
@@ -324,13 +310,11 @@ const authSlice = createSlice({
             .addCase(logoutUser.fulfilled, (state) => {
                 state.loadingAction = false;
                 state.authenticated = false;
-                state.token = null;
                 state.user = null;
             })
             .addCase(logoutUser.rejected, (state) => {
                 state.loadingAction = false;
                 state.authenticated = false;
-                state.token = null;
                 state.user = null;
             })
             .addCase(fetchUsers.pending, (state) => {

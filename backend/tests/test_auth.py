@@ -135,3 +135,16 @@ def test_setup_mode_only_allows_setup_scoped_commands():
     assert auth.is_command_allowed_during_setup("background-task.list") is False
     assert auth.is_command_allowed_during_setup("sync-satellite-data") is False
     assert auth.is_command_allowed_during_setup("database-backup.full_restore") is False
+
+
+def test_extract_session_cookie_token_from_cookie_header():
+    cookie_header = f"foo=bar; {auth.AUTH_SESSION_COOKIE_NAME}=session-token-123; theme=dark"
+    assert auth.extract_session_cookie_token(cookie_header) == "session-token-123"
+
+
+def test_extract_session_cookie_token_returns_none_when_missing():
+    assert auth.extract_session_cookie_token("foo=bar; theme=dark") is None
+
+
+def test_extract_cookie_token_normalizes_blank_values():
+    assert auth.extract_cookie_token("   ") is None

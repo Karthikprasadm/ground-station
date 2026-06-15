@@ -59,7 +59,7 @@ _register_all_handlers()
 
 # Auth context keyed by socket session id.
 SOCKET_AUTH: Dict[str, Dict[str, Any]] = {}
-# Raw bearer token keyed by socket session id (used for per-request revalidation).
+# Raw session token keyed by socket session id (used for per-request revalidation).
 SOCKET_TOKENS: Dict[str, str] = {}
 
 
@@ -85,6 +85,9 @@ def register_socketio_handlers(sio):
 
         setup_required = await authsvc.is_setup_required()
         token = authsvc.extract_socket_token(auth)
+        if not token:
+            # Browser clients now rely on HttpOnly auth cookies and cannot pass session tokens via JS.
+            token = authsvc.extract_session_cookie_token(environ.get("HTTP_COOKIE"))
         auth_context = await authsvc.authenticate_token(token)
         if not setup_required and auth_context is None:
             logger.warning(f"Rejecting unauthenticated socket connection sid={sid}")

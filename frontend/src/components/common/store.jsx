@@ -294,13 +294,12 @@ const authPersistConfig = {
         }
         return {
             ...originalState,
-            token: inboundState.token ?? null,
             user: inboundState.user ?? null,
             showLogoutConfirmation:
                 inboundState.showLogoutConfirmation ?? originalState.showLogoutConfirmation,
         };
     },
-    whitelist: ['token', 'user', 'showLogoutConfirmation'],
+    whitelist: ['user', 'showLogoutConfirmation'],
 };
 
 

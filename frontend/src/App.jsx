@@ -40,7 +40,7 @@ import { LoginScreen, SetupScreen } from './components/auth/screens.jsx';
 
 export default function App() {
     const dispatch = useDispatch();
-    const { socket, handleTokenChange } = useSocket();
+    const { socket, handleAuthEpochChange } = useSocket();
     const { i18n } = useTranslation();
     const preferences = useSelector((state) => state.preferences.preferences);
     const authState = useSelector((state) => state.auth);
@@ -60,6 +60,15 @@ export default function App() {
     const themeMode = themePreference ? themePreference.value : 'dark';
     const [sessionBootstrapped, setSessionBootstrapped] = React.useState(false);
     const [awaitingRuntimeReset, setAwaitingRuntimeReset] = React.useState(false);
+    const socketAuthEpoch = React.useMemo(() => {
+        if (authState.setupRequired) {
+            return 'setup';
+        }
+        if (authState.authenticated) {
+            return `session:${authState.user?.user_id || authState.user?.id || 'active'}`;
+        }
+        return 'anonymous';
+    }, [authState.setupRequired, authState.authenticated, authState.user?.user_id, authState.user?.id]);
 
     // Listen for system theme changes when 'auto' is selected
     React.useEffect(() => {
@@ -91,16 +100,16 @@ export default function App() {
     }, [dispatch, authState.statusInitialized]);
 
     React.useEffect(() => {
-        // Reset dashboard runtime connection/data flags whenever auth token changes.
+        // Reset dashboard runtime connection/data flags whenever auth context changes.
         // This avoids a stale dashboard frame from a previous session during logout/login.
         dispatch(resetRuntimeSessionState());
         setSessionBootstrapped(false);
         setAwaitingRuntimeReset(true);
-    }, [dispatch, authState?.token]);
+    }, [dispatch, socketAuthEpoch]);
 
     React.useEffect(() => {
-        handleTokenChange(authState?.token || null);
-    }, [authState?.token, handleTokenChange]);
+        handleAuthEpochChange(socketAuthEpoch);
+    }, [socketAuthEpoch, handleAuthEpochChange]);
 
     // Sync language from Redux to i18n on mount and when it changes
     React.useEffect(() => {
@@ -128,7 +137,7 @@ export default function App() {
             return;
         }
 
-        // Require one fresh "not ready" runtime state after token change before
+        // Require one fresh "not ready" runtime state after auth-context change before
         // allowing the dashboard to become bootstrapped. This blocks stale
         // connected/data-ready flags from the previous session.
         if (awaitingRuntimeReset) {

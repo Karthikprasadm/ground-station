@@ -23,6 +23,7 @@ import secrets
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from http.cookies import SimpleCookie
 from typing import Any, Dict, Optional
 
 from passlib.context import CryptContext
@@ -41,6 +42,7 @@ _max_failed_logins = 5
 _lock_minutes = 10
 _setup_cache_ttl_seconds = 3.0
 _setup_cache: Dict[str, Any] = {"value": True, "expires_at": 0.0}
+AUTH_SESSION_COOKIE_NAME = "gs_session"
 
 setup_allowed_commands = {
     "get-locations",
@@ -202,6 +204,32 @@ def extract_bearer_token(authorization_header: Optional[str]) -> Optional[str]:
 
     value = token.strip()
     return value or None
+
+
+def extract_cookie_token(cookie_value: Any) -> Optional[str]:
+    if cookie_value is None:
+        return None
+
+    value = str(cookie_value).strip()
+    return value or None
+
+
+def extract_session_cookie_token(cookie_header: Optional[str]) -> Optional[str]:
+    """Extract the auth session token from a raw Cookie header."""
+    if not cookie_header:
+        return None
+
+    jar = SimpleCookie()
+    try:
+        jar.load(str(cookie_header))
+    except Exception:
+        return None
+
+    morsel = jar.get(AUTH_SESSION_COOKIE_NAME)
+    if morsel is None:
+        return None
+
+    return extract_cookie_token(morsel.value)
 
 
 def is_admin_role(role: Optional[str]) -> bool:

@@ -10,9 +10,9 @@ from typing import Any, Dict, Optional, Set
 
 import socketio
 from engineio.payload import Payload
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -54,6 +54,8 @@ SOCKET_IO_PING_INTERVAL_SECONDS = 25
 SOCKET_IO_PING_TIMEOUT_SECONDS = 120
 # Default is 100KB (100000 bytes), increase for large backup restore payloads.
 Payload.max_decode_packet_size = SOCKET_IO_MAX_PAYLOAD_BYTES
+AUTH_COOKIE_MAX_AGE_DEFAULT_SECONDS = 15 * 24 * 60 * 60
+AUTH_COOKIE_MAX_AGE_KEEP_ACTIVE_SECONDS = 365 * 24 * 60 * 60
 
 # At the top of the file, add a global to track background tasks
 background_tasks: Set[asyncio.Task] = set()
@@ -249,6 +251,48 @@ app.add_middleware(
 process_manager.set_sio(sio)
 
 
+def _auth_cookie_secure(request: Request) -> bool:
+    return str(request.url.scheme).lower() == "https"
+
+
+def _set_auth_session_cookie(
+    response: Response, request: Request, token: str, max_age_seconds: int
+) -> None:
+    response.set_cookie(
+        key=authsvc.AUTH_SESSION_COOKIE_NAME,
+        value=str(token),
+        max_age=max(int(max_age_seconds), 1),
+        httponly=True,
+        samesite="strict",
+        secure=_auth_cookie_secure(request),
+        path="/",
+    )
+
+
+def _clear_auth_session_cookie(response: Response, request: Request) -> None:
+    response.delete_cookie(
+        key=authsvc.AUTH_SESSION_COOKIE_NAME,
+        path="/",
+        samesite="strict",
+        secure=_auth_cookie_secure(request),
+    )
+
+
+def _extract_request_token(request: Request, allow_cookie_token: bool = True) -> Optional[str]:
+    auth_header = request.headers.get("authorization")
+    token: Optional[str] = authsvc.extract_bearer_token(auth_header)
+    if token:
+        return token
+
+    if not allow_cookie_token:
+        return None
+
+    cookie_token: Optional[str] = authsvc.extract_cookie_token(
+        request.cookies.get(authsvc.AUTH_SESSION_COOKIE_NAME)
+    )
+    return cookie_token
+
+
 def _client_ip_from_request(request: Request) -> Optional[str]:
     xff = request.headers.get("x-forwarded-for")
     if xff:
@@ -289,10 +333,13 @@ async def _require_request_auth(
     request: Request,
     require_auth: bool = True,
     require_admin: bool = False,
+    allow_cookie_token: bool = True,
+    touch_last_seen: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    auth_header = request.headers.get("authorization")
-    token = authsvc.extract_bearer_token(auth_header)
-    auth_context = await authsvc.authenticate_token(token) if token else None
+    token = _extract_request_token(request, allow_cookie_token=allow_cookie_token)
+    auth_context = (
+        await authsvc.authenticate_token(token, touch_last_seen=touch_last_seen) if token else None
+    )
 
     if require_auth and not auth_context:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -303,14 +350,48 @@ async def _require_request_auth(
     return auth_context
 
 
+class AuthenticatedStaticFiles:
+    """Wrap StaticFiles and enforce runtime auth for sensitive data directories."""
+
+    def __init__(self, directory: str, html: bool) -> None:
+        self._static_files = StaticFiles(directory=directory, html=html)
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self._static_files(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        try:
+            # Browser media requests cannot set Authorization headers, so cookie auth is required.
+            # Skip last-seen writes for asset requests to avoid a DB write on every image/audio fetch.
+            await _require_request_auth(
+                request,
+                require_auth=True,
+                require_admin=False,
+                allow_cookie_token=True,
+                touch_last_seen=False,
+            )
+        except HTTPException as exc:
+            response = JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+            await response(scope, receive, send)
+            return
+
+        await self._static_files(scope, receive, send)
+
+
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
     """Return setup/authentication status for frontend app bootstrapping."""
     setup_required = await authsvc.is_setup_required()
     station_identity = await _load_station_identity()
-    auth_header = request.headers.get("authorization")
-    token = authsvc.extract_bearer_token(auth_header)
-    auth_context = await authsvc.authenticate_token(token, touch_last_seen=False) if token else None
+    auth_context = await _require_request_auth(
+        request,
+        require_auth=False,
+        require_admin=False,
+        allow_cookie_token=True,
+        touch_last_seen=False,
+    )
     return {
         "setup_required": setup_required,
         "authenticated": bool(auth_context),
@@ -320,7 +401,7 @@ async def auth_status(request: Request):
 
 
 @app.post("/api/auth/setup-admin")
-async def setup_admin(request: Request):
+async def setup_admin(request: Request, response: Response):
     """One-time bootstrap endpoint to create the initial admin account."""
     payload = await request.json()
     username = str(payload.get("username") or "")
@@ -336,12 +417,24 @@ async def setup_admin(request: Request):
         message = str(result.get("error") or "Failed to initialize admin account.")
         status_code = 409 if "already completed" in message.lower() else 400
         raise HTTPException(status_code=status_code, detail=message)
-    return result
+    token = authsvc.extract_cookie_token(result.get("token"))
+    if token:
+        _set_auth_session_cookie(
+            response=response,
+            request=request,
+            token=token,
+            max_age_seconds=AUTH_COOKIE_MAX_AGE_DEFAULT_SECONDS,
+        )
+
+    return {
+        "success": bool(result.get("success")),
+        "user": result.get("user"),
+    }
 
 
 @app.post("/api/auth/login")
-async def auth_login(request: Request):
-    """Login endpoint that returns an opaque bearer token."""
+async def auth_login(request: Request, response: Response):
+    """Login endpoint that sets an HttpOnly auth session cookie."""
     payload = await request.json()
     username = str(payload.get("username") or "")
     password = str(payload.get("password") or "")
@@ -357,22 +450,40 @@ async def auth_login(request: Request):
     )
     if not result.get("success"):
         raise HTTPException(status_code=401, detail=str(result.get("error") or "Login failed."))
-    return result
+
+    token = authsvc.extract_cookie_token(result.get("token"))
+    if token:
+        ttl_seconds = (
+            AUTH_COOKIE_MAX_AGE_KEEP_ACTIVE_SECONDS
+            if keep_session_active
+            else AUTH_COOKIE_MAX_AGE_DEFAULT_SECONDS
+        )
+        _set_auth_session_cookie(
+            response=response,
+            request=request,
+            token=token,
+            max_age_seconds=ttl_seconds,
+        )
+
+    return {
+        "success": bool(result.get("success")),
+        "user": result.get("user"),
+    }
 
 
 @app.post("/api/auth/logout")
-async def auth_logout(request: Request):
-    """Revoke the current auth session token."""
-    await _require_request_auth(request, require_auth=True, require_admin=False)
-    auth_header = request.headers.get("authorization")
-    token = authsvc.extract_bearer_token(auth_header)
-    await authsvc.logout(token, reason="logout")
+async def auth_logout(request: Request, response: Response):
+    """Revoke the current auth session token and clear cookie state."""
+    token = _extract_request_token(request, allow_cookie_token=True)
+    if token:
+        await authsvc.logout(token, reason="logout")
+    _clear_auth_session_cookie(response=response, request=request)
     return {"success": True}
 
 
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
-    """Return current user context from bearer token."""
+    """Return current user context from the authenticated request session."""
     auth_context = await _require_request_auth(request, require_auth=True, require_admin=False)
     return {"success": True, "data": auth_context}
 
@@ -487,13 +598,17 @@ os.makedirs(transcriptions_dir, exist_ok=True)
 
 # Use html=True to enable directory browsing
 app.mount("/satimages", StaticFiles(directory=satellites_dir, html=True), name="satimages")
-app.mount("/recordings", StaticFiles(directory=recordings_dir, html=True), name="recordings")
+app.mount(
+    "/recordings", AuthenticatedStaticFiles(directory=recordings_dir, html=True), name="recordings"
+)
 app.mount("/snapshots", StaticFiles(directory=snapshots_dir, html=True), name="snapshots")
-app.mount("/decoded", StaticFiles(directory=decoded_dir, html=True), name="decoded")
-app.mount("/audio", StaticFiles(directory=audio_dir, html=True), name="audio")
+app.mount("/decoded", AuthenticatedStaticFiles(directory=decoded_dir, html=True), name="decoded")
+app.mount("/audio", AuthenticatedStaticFiles(directory=audio_dir, html=True), name="audio")
 # Note: html=False for transcriptions to ensure .txt files are served with correct content-type
 app.mount(
-    "/transcriptions", StaticFiles(directory=transcriptions_dir, html=False), name="transcriptions"
+    "/transcriptions",
+    AuthenticatedStaticFiles(directory=transcriptions_dir, html=False),
+    name="transcriptions",
 )
 app.mount("/body-icons", StaticFiles(directory=bodies_dir, html=True), name="body-icons")
 app.mount("/mission-icons", StaticFiles(directory=missions_dir, html=True), name="mission-icons")

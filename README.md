@@ -543,6 +543,7 @@ docker run -d \
 - For Raspberry Pi hardware, only the Raspberry Pi 5 is recommended
 - For ARM64, using `-v /dev:/dev` ensures all USB devices are accessible
 - Access the web interface at `http://<YOUR_HOST>:7000`
+- For TLS reverse-proxy deployments, see [deploy/nginx/README.md](deploy/nginx/README.md)
 
 ## Contributing
 
