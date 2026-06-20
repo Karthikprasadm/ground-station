@@ -349,6 +349,7 @@ export function LoginScreen() {
                                     value={username}
                                     onChange={(event) => setUsername(event.target.value)}
                                     autoComplete="username"
+                                    size="small"
                                     required
                                 />
                                 <TextField
@@ -357,6 +358,7 @@ export function LoginScreen() {
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
                                     autoComplete="current-password"
+                                    size="small"
                                     required
                                 />
                                 <FormControlLabel
