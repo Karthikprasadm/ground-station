@@ -80,6 +80,15 @@ BODY_HORIZONS_COMMANDS: Dict[str, str] = {
     "rhea": "605",
     "titan": "606",
     "iapetus": "608",
+    "miranda": "705",
+    "ariel": "701",
+    "umbriel": "702",
+    "titania": "703",
+    "oberon": "704",
+    "triton": "801",
+    "nereid": "802",
+    "proteus": "808",
+    "charon": "901",
 }
 _BODY_CATALOG_BY_ID: Dict[str, Dict[str, Any]] = {
     str(item.get("body_id") or "").strip().lower(): item
