@@ -115,7 +115,8 @@ live radio signals from satellites.
 *   **Performance Monitoring:** Live pipeline metrics (queue utilization, throughput, drops, and component health) streamed to the frontend.
 *   **Responsive Web Interface:** Material-UI + Socket.IO frontend for desktop, tablet, and mobile operation.
 *   **Authentication + User Management:** Built-in login screen with role-based access control for two user types: admins and operators.
-*   **Celestial Tracking Integration:** Solar-system/celestial vector support backed by the NASA/JPL Horizons API for non-TLE body tracking paths.
+*   **Interactive Solar System View:** Dedicated Solar System page with live orbital context for planets and other supported bodies.
+*   **Celestial Body + Mission Targeting:** Track selected solar-system bodies and deep-space mission targets through NASA/JPL Horizons-backed vectors.
 
 ## Scheduled Observations & Automated Pass Recording
 
