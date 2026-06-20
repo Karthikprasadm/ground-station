@@ -1454,9 +1454,6 @@ export default function SDRsPage() {
                             gap: 1,
                         }}
                     >
-                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                            {t('sdr.discovery_task', 'Discovery Task')}
-                        </Typography>
                         {activeSoapyDiscoveryTask ? (
                             <Typography variant="caption" color="text.secondary">
                                 {`${t('sdr.duration', 'Duration')}: ${formatTaskDuration(discoveryTaskDurationMs)}`}
