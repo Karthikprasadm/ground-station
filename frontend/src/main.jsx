@@ -137,7 +137,7 @@ const router = createBrowserRouter([
                                 children: [
                                     {
                                         index: true,
-                                        element: <Navigate to="/admin/system/hardware/rigs" replace />,
+                                        element: <Navigate to="/admin/system/hardware/sdrs" replace />,
                                     },
                                     {
                                         path: "rigs",
@@ -206,7 +206,7 @@ const router = createBrowserRouter([
                                         children: [
                                             {
                                                 index: true,
-                                                element: <Navigate to="/admin/system/hardware/rigs" replace />,
+                                                element: <Navigate to="/admin/system/hardware/sdrs" replace />,
                                             },
                                             {
                                                 path: "rigs",
@@ -322,7 +322,7 @@ const router = createBrowserRouter([
                         children: [
                             {
                                 index: true,
-                                element: <Navigate to="/admin/system/hardware/rigs" replace />,
+                                element: <Navigate to="/admin/system/hardware/sdrs" replace />,
                             },
                             {
                                 path: "rigs",

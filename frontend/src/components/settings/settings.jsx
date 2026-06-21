@@ -203,7 +203,7 @@ const ADMIN_SYSTEM_TABS = [
     { key: "general", labelKey: "tabs.general", defaultLabel: "General", path: "/admin/system/general" },
     { key: "location", labelKey: "tabs.location", defaultLabel: "Location", path: "/admin/system/location" },
     { key: "users", labelKey: "tabs.users", defaultLabel: "Users", path: "/admin/system/users" },
-    { key: "hardware", labelKey: "tabs.hardware", defaultLabel: "Hardware", path: "/admin/system/hardware/rigs" },
+    { key: "hardware", labelKey: "tabs.hardware", defaultLabel: "Hardware", path: "/admin/system/hardware/sdrs" },
     { key: "maintenance", labelKey: "tabs.maintenance", defaultLabel: "Maintenance", path: "/admin/system/maintenance" },
     { key: "about", labelKey: "tabs.about", defaultLabel: "About", path: "/admin/system/about" },
 ];
@@ -356,9 +356,9 @@ export const SettingsTabs = React.memo(function SettingsTabs({
     switch (activeMainTab) {
         case "hardware":
             tabsList = [
+                <AntTab key="sdrs" value="sdrs" label={t('tabs.sdrs')} to="/hardware/sdrs" component={Link}/>,
                 <AntTab key="rigcontrol" value="rigcontrol" label={t('tabs.rigs')} to="/hardware/rigs" component={Link} />,
                 <AntTab key="rotatorcontrol" value="rotatorcontrol" label={t('tabs.rotators')} to="/hardware/rotators" component={Link} />,
-                <AntTab key="sdrs" value="sdrs" label={t('tabs.sdrs')} to="/hardware/sdrs" component={Link}/>,
             ];
             break;
         case "satellites":
@@ -445,7 +445,7 @@ export const SettingsTabs = React.memo(function SettingsTabs({
                  variant="fullWidth"
                  allowScrollButtonsMobile
              >
-                 <AntTab value={"hardware"} label={t('tabs.hardware')} to="/hardware/rigs" component={Link}/>
+                 <AntTab value={"hardware"} label={t('tabs.hardware')} to="/hardware/sdrs" component={Link}/>
                  <AntTab value={"satellites"} label={t('tabs.satellites')} to="/satellites/catalog" component={Link}/>
                  <AntTab value={"settings"} label={t('tabs.settings')} to="/settings/general" component={Link}/>
              </AntTabs>
@@ -543,9 +543,9 @@ const AdminSystemHardwareTabs = React.memo(function AdminSystemHardwareTabs() {
                 allowScrollButtonsMobile
                 sx={getSettingsTabRowSx('detailRow')}
             >
+                <AntTab key="sdrs" value="sdrs" label={t('tabs.sdrs')} />
                 <AntTab key="rigs" value="rigs" label={t('tabs.rigs')} />
                 <AntTab key="rotators" value="rotators" label={t('tabs.rotators')} />
-                <AntTab key="sdrs" value="sdrs" label={t('tabs.sdrs')} />
             </AntTabs>
             {content}
         </Box>
