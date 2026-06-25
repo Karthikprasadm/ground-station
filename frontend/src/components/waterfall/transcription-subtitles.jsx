@@ -395,6 +395,8 @@ const VFOSubtitle = ({
                     bottom: `${position.y}px`,
                     left: '50%',
                     transform: `translate(calc(-50% + ${position.x}px), 0)`,
+                    width: { xs: 'calc(100vw - 12px)', sm: 'auto' },
+                    maxWidth: { xs: 'calc(100vw - 12px)', sm: 'none' },
                     zIndex: 1000,
                     pointerEvents: 'auto',
                     cursor: isDragging ? 'grabbing' : 'default',
