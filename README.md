@@ -13,29 +13,45 @@ single web interface.
 
 <div align="center">
 
-### Login Screen
-<img src="frontend/public/ground station - login screen.png" alt="Ground Station login screen" width="450"/>
-
-*Login screen for user authentication before accessing the Ground Station interface*
-
----
-
 ### Global Satellite Overview
-<img src="frontend/public/ground station - overview page - amateur group.png" alt="Overview page with amateur satellite group" width="450"/>
+<p>
+  <img src="frontend/public/ground station - overview page - amateur group.png" alt="Overview page with amateur satellite group (desktop)" height="300"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="frontend/public/ground station - earth view - mobile.jpg" alt="Earth view page on mobile" height="300"/>
+</p>
 
 *Overview page with quick group selection and real-time satellite status indicators*
 
 ---
 
 ### Solar System View
-<img src="frontend/public/ground station - solar system view.png" alt="Solar System view page" width="450"/>
+<p>
+  <img src="frontend/public/ground station - solar system view.png" alt="Solar System view page (desktop)" height="300"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="frontend/public/ground station - solar system view - mobile.jpg" alt="Solar System view page on mobile" height="300"/>
+</p>
 
 *Solar System page for celestial-body tracking with live orbital context and interactive visualization*
 
 ---
 
+### Login Screen
+<p>
+  <img src="frontend/public/ground station - login screen.png" alt="Ground Station login screen (desktop)" height="300"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="frontend/public/ground station - login - mobile.jpg" alt="Ground Station login screen on mobile" height="300"/>
+</p>
+
+*Login screen for user authentication before accessing the Ground Station interface*
+
+---
+
 ### Multi-Target Tracking Console
-<img src="frontend/public/ground station - tracking console - multitargets - iss.png" alt="Multi-target tracking console focused on ISS" width="450"/>
+<p>
+  <img src="frontend/public/ground station - tracking console - multitargets - iss.png" alt="Multi-target tracking console focused on ISS (desktop)" height="300"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="frontend/public/ground station - target console - mobile.jpg" alt="Target console on mobile" height="300"/>
+</p>
 
 *Multi-target tracking console view showing an active ISS target with per-target control and live tracking telemetry*
 
