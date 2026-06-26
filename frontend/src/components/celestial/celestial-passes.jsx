@@ -32,9 +32,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import {
-    CELESTIAL_PASSES_DEFAULT_COLUMN_VISIBILITY,
-    CELESTIAL_PASSES_DEFAULT_PAGE_SIZE,
-    CELESTIAL_PASSES_DEFAULT_SORT_MODEL,
+    resetCelestialPassesTableSettings,
     setCelestialPassesTableColumnVisibility,
     setCelestialPassesTablePageSize,
     setCelestialPassesTableSortModel,
@@ -241,9 +239,7 @@ const PassesTableSettingsDialog = ({ open, onClose }) => {
     const columnVisibility = useSelector((state) => state.celestial?.passesTableColumnVisibility || {});
     const pageSize = useSelector((state) => state.celestial?.passesTablePageSize || 10);
     const handleResetValues = useCallback(() => {
-        dispatch(setCelestialPassesTableColumnVisibility({ ...CELESTIAL_PASSES_DEFAULT_COLUMN_VISIBILITY }));
-        dispatch(setCelestialPassesTablePageSize(CELESTIAL_PASSES_DEFAULT_PAGE_SIZE));
-        dispatch(setCelestialPassesTableSortModel([...CELESTIAL_PASSES_DEFAULT_SORT_MODEL]));
+        dispatch(resetCelestialPassesTableSettings());
     }, [dispatch]);
 
     const columns = [

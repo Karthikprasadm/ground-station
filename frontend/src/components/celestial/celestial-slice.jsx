@@ -40,6 +40,7 @@ export const CELESTIAL_PASSES_DEFAULT_SORT_MODEL = [
     { field: 'status', sort: 'asc' },
     { field: 'eventStart', sort: 'asc' },
 ];
+export const CELESTIAL_PASSES_DEFAULTS_VERSION = 2;
 
 export const fetchCelestialScene = createAsyncThunk(
     'celestial/fetchScene',
@@ -183,6 +184,7 @@ const celestialSlice = createSlice({
         passesTableColumnVisibility: { ...CELESTIAL_PASSES_DEFAULT_COLUMN_VISIBILITY },
         passesTablePageSize: CELESTIAL_PASSES_DEFAULT_PAGE_SIZE,
         passesTableSortModel: [...CELESTIAL_PASSES_DEFAULT_SORT_MODEL],
+        passesTableDefaultsVersion: CELESTIAL_PASSES_DEFAULTS_VERSION,
         solarLoading: false,
         tracksLoading: false,
         error: null,
@@ -275,6 +277,13 @@ const celestialSlice = createSlice({
         },
         setCelestialPassesTableSortModel: (state, action) => {
             state.passesTableSortModel = action.payload || [];
+        },
+        // Keep reset atomic so persisted state doesn't observe intermediate table values.
+        resetCelestialPassesTableSettings: (state) => {
+            state.passesTableColumnVisibility = { ...CELESTIAL_PASSES_DEFAULT_COLUMN_VISIBILITY };
+            state.passesTablePageSize = CELESTIAL_PASSES_DEFAULT_PAGE_SIZE;
+            state.passesTableSortModel = [...CELESTIAL_PASSES_DEFAULT_SORT_MODEL];
+            state.passesTableDefaultsVersion = CELESTIAL_PASSES_DEFAULTS_VERSION;
         },
     },
     extraReducers: (builder) => {
@@ -427,5 +436,6 @@ export const {
     setCelestialPassesTableColumnVisibility,
     setCelestialPassesTablePageSize,
     setCelestialPassesTableSortModel,
+    resetCelestialPassesTableSettings,
 } = celestialSlice.actions;
 export default celestialSlice.reducer;
