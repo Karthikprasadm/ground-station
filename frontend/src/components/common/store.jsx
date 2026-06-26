@@ -49,7 +49,7 @@ import sessionsReducer from '../settings/sessions-slice.jsx';
 import transcriptionReducer from '../waterfall/transcription-slice.jsx';
 import schedulerReducer from '../scheduler/scheduler-slice.jsx';
 import tasksReducer from '../tasks/tasks-slice.jsx';
-import celestialReducer from '../celestial/celestial-slice.jsx';
+import celestialReducer, { CELESTIAL_PASSES_DEFAULTS_VERSION } from '../celestial/celestial-slice.jsx';
 import celestialMonitoredReducer from '../celestial/monitored-slice.jsx';
 import celestialDisplayReducer from '../celestial/celestial-display-slice.jsx';
 import authReducer from '../auth/auth-slice.jsx';
@@ -267,7 +267,32 @@ const tasksPersistConfig = {
 const celestialPersistConfig = {
     key: 'celestial',
     storage,
-    whitelist: ['mapSettings', 'passesTableColumnVisibility', 'passesTablePageSize', 'passesTableSortModel']
+    stateReconciler: (inboundState, originalState) => {
+        if (!inboundState) {
+            return originalState;
+        }
+        const inboundDefaultsVersion = Number(inboundState.passesTableDefaultsVersion || 0);
+        const shouldApplyLatestDefaults = inboundDefaultsVersion < CELESTIAL_PASSES_DEFAULTS_VERSION;
+        // Apply passes-table defaults once when loading older persisted payloads.
+        // After migration, user customizations continue to persist normally.
+        return {
+            ...originalState,
+            ...inboundState,
+            passesTableDefaultsVersion: shouldApplyLatestDefaults
+                ? originalState.passesTableDefaultsVersion
+                : (inboundState.passesTableDefaultsVersion ?? originalState.passesTableDefaultsVersion),
+            passesTableColumnVisibility: shouldApplyLatestDefaults
+                ? originalState.passesTableColumnVisibility
+                : (inboundState.passesTableColumnVisibility ?? originalState.passesTableColumnVisibility),
+            passesTablePageSize: shouldApplyLatestDefaults
+                ? originalState.passesTablePageSize
+                : (inboundState.passesTablePageSize ?? originalState.passesTablePageSize),
+            passesTableSortModel: shouldApplyLatestDefaults
+                ? originalState.passesTableSortModel
+                : (inboundState.passesTableSortModel ?? originalState.passesTableSortModel),
+        };
+    },
+    whitelist: ['mapSettings', 'passesTableDefaultsVersion', 'passesTableColumnVisibility', 'passesTablePageSize', 'passesTableSortModel']
 };
 
 const celestialMonitoredPersistConfig = {
