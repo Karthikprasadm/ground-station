@@ -99,6 +99,7 @@ const SdrAccordion = ({
                           hasRtlAgc,
                           rtlAgc,
                           onRtlAgcChange,
+                          sdrUsageByOtherSessions,
                           onGainElementChange,
                           isRecording,
                           startStreamValidationErrors,
@@ -121,6 +122,8 @@ const SdrAccordion = ({
 
     const renderSdrOption = React.useCallback((sdr) => {
         const OptionIcon = getSdrOptionIcon(sdr?.type);
+        const sdrId = String(sdr?.id ?? '');
+        const usageCount = Number(sdrUsageByOtherSessions?.[sdrId] || 0);
         return (
             <Box
                 sx={{
@@ -137,14 +140,74 @@ const SdrAccordion = ({
                         {sdr?.name}
                     </Typography>
                 </Box>
-                <Chip
-                    size="small"
-                    label={String(sdr?.type || '').trim() || 'unknown'}
-                    sx={{ height: 20, borderRadius: '999px' }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {usageCount > 0 && (
+                        <Chip
+                            size="small"
+                            color="warning"
+                            label={t('sdr.in_use_badge', { defaultValue: 'in use' })}
+                            sx={{ height: 20, borderRadius: '999px' }}
+                        />
+                    )}
+                    <Chip
+                        size="small"
+                        label={String(sdr?.type || '').trim() || 'unknown'}
+                        sx={{ height: 20, borderRadius: '999px' }}
+                    />
+                </Box>
             </Box>
         );
-    }, [getSdrOptionIcon]);
+    }, [getSdrOptionIcon, sdrUsageByOtherSessions, t]);
+    const renderSelectedSdrValue = React.useCallback((value) => {
+        const selectedValue = String(value ?? 'none');
+        if (selectedValue === 'none') {
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RadioButtonUncheckedIcon sx={{ fontSize: '1rem', opacity: 0.8 }} />
+                    {t('sdr.no_sdr_selected')}
+                </Box>
+            );
+        }
+
+        const selectedSdr = sdrs.find((sdr) => String(sdr?.id) === selectedValue);
+        if (!selectedSdr) {
+            return selectedValue;
+        }
+
+        const OptionIcon = getSdrOptionIcon(selectedSdr?.type);
+        const usageCount = Number(sdrUsageByOtherSessions?.[selectedValue] || 0);
+
+        return (
+            <Box
+                sx={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    minWidth: 0,
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                    <OptionIcon sx={{ fontSize: '1rem', opacity: 0.9, flexShrink: 0 }} />
+                    <Typography
+                        variant="body2"
+                        sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                        {selectedSdr?.name}
+                    </Typography>
+                </Box>
+                {usageCount > 0 && (
+                    <Chip
+                        size="small"
+                        color="warning"
+                        label={t('sdr.in_use_badge', { defaultValue: 'in use' })}
+                        sx={{ height: 20, borderRadius: '999px', flexShrink: 0 }}
+                    />
+                )}
+            </Box>
+        );
+    }, [sdrs, getSdrOptionIcon, sdrUsageByOtherSessions, t]);
 
     const sdrOptionsByGroup = React.useMemo(() => {
         const typedGroups = SDR_TYPE_GROUPS.map((group) => ({
@@ -378,6 +441,7 @@ const SdrAccordion = ({
                                 value={sdrs.length > 0 ? String(selectedSDRId ?? "none") : "none"}
                                 onChange={onSDRChange}
                                 size="small"
+                                renderValue={renderSelectedSdrValue}
                                 label={t('sdr.sdr_label')}>
                                 <MenuItem value="none" disabled={isStreaming}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -868,12 +932,14 @@ function areSdrAccordionPropsEqual(prevProps, nextProps) {
         prevProps.hasRtlAgc === nextProps.hasRtlAgc &&
         prevProps.rtlAgc === nextProps.rtlAgc &&
         prevProps.onRtlAgcChange === nextProps.onRtlAgcChange &&
+        prevProps.sdrUsageByOtherSessions === nextProps.sdrUsageByOtherSessions &&
         prevProps.onGainElementChange === nextProps.onGainElementChange &&
         prevProps.isRecording === nextProps.isRecording &&
         prevProps.startStreamValidationErrors === nextProps.startStreamValidationErrors &&
         prevProps.playbackRecordings === nextProps.playbackRecordings &&
         prevProps.playbackRecordingsLoading === nextProps.playbackRecordingsLoading &&
-        prevProps.selectedPlaybackRecordingName === nextProps.selectedPlaybackRecordingName
+        prevProps.selectedPlaybackRecordingName === nextProps.selectedPlaybackRecordingName &&
+        prevProps.onPlaybackRecordingChange === nextProps.onPlaybackRecordingChange
     );
 }
 

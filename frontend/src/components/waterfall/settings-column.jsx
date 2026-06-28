@@ -228,6 +228,15 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
     const {
         sdrs
     } = useSelector((state) => state.sdrs);
+    const runtimeSnapshotSessions = useSelector(
+        (state) => state.sessions?.runtimeSnapshot?.data?.sessions || {},
+        shallowEqual
+    );
+    const runtimeSnapshotSdrs = useSelector(
+        (state) => state.sessions?.runtimeSnapshot?.data?.sdrs || {},
+        shallowEqual
+    );
+    const currentSessionId = useSelector((state) => state.decoders?.currentSessionId);
     const {
         files: filebrowserFiles,
         filesLoading: filebrowserLoading,
@@ -237,6 +246,60 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
     const {
         preferences
     } = useSelector((state) => state.preferences);
+
+    // Build a map of SDR IDs actively streaming for sessions other than this browser session.
+    // We require live consumer/runtime evidence and do not treat "selected SDR only" as in-use.
+    const sdrUsageByOtherSessions = useMemo(() => {
+        const usage = {};
+        const normalizedCurrentSessionId = currentSessionId ? String(currentSessionId) : null;
+        const hasSessionConsumer = (sdrRuntime, sessionId) => {
+            if (!sdrRuntime || !sessionId) {
+                return false;
+            }
+
+            const sid = String(sessionId);
+            const clients = Array.isArray(sdrRuntime.clients) ? sdrRuntime.clients : [];
+            if (clients.some((clientId) => String(clientId) === sid)) {
+                return true;
+            }
+
+            const mapHasSession = (value) => {
+                if (!value || typeof value !== 'object') {
+                    return false;
+                }
+                return Object.keys(value).some((key) => key === sid || key.startsWith(`${sid}:`));
+            };
+
+            return (
+                mapHasSession(sdrRuntime.demodulators) ||
+                mapHasSession(sdrRuntime.recorders) ||
+                mapHasSession(sdrRuntime.decoders)
+            );
+        };
+
+        Object.entries(runtimeSnapshotSessions || {}).forEach(([sessionId, sessionInfo]) => {
+            if (!sessionId) {
+                return;
+            }
+            if (normalizedCurrentSessionId && String(sessionId) === normalizedCurrentSessionId) {
+                return;
+            }
+
+            const sdrId = String(sessionInfo?.sdr_id ?? '').trim();
+            if (!sdrId || sdrId === 'none' || sdrId === 'sigmf-playback') {
+                return;
+            }
+
+            const sdrRuntime = runtimeSnapshotSdrs?.[sdrId];
+            if (!sdrRuntime?.alive || !hasSessionConsumer(sdrRuntime, sessionId)) {
+                return;
+            }
+
+            usage[sdrId] = (usage[sdrId] || 0) + 1;
+        });
+
+        return usage;
+    }, [runtimeSnapshotSessions, runtimeSnapshotSdrs, currentSessionId]);
 
     // Helper function to get preference value
     const getPreferenceValue = useCallback((name) => {
@@ -1343,6 +1406,7 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
                     hasRtlAgc={hasRtlAgc}
                     rtlAgc={rtlAgc}
                     onRtlAgcChange={handleRtlAgcChange}
+                    sdrUsageByOtherSessions={sdrUsageByOtherSessions}
                     isRecording={isRecording}
                     startStreamValidationErrors={startStreamValidationErrors}
                     playbackRecordings={playbackRecordings}
