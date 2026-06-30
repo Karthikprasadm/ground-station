@@ -11,6 +11,7 @@ single web interface.
 
 ## Recent Releases (Last 10 Tags)
 
+* **v0.7.7 (2026-06-30):** Improved waterfall VFO drag behavior and movement state handling, enhanced playback overlay responsiveness, added runtime scheduler metadata with clearer terminal-observation visibility, and refined target-slot badges plus EarthView satellite/transmitter editing flows.
 * **v0.7.6 (2026-06-28):** Added SDR usage badges with cross-session utilization tracking, persisted orbital sync state with UI hydration support, improved active non-satellite tracker resync during celestial sync, and refined target layout/schema behavior.
 * **v0.7.4 (2026-06-27):** Added timeline scrubbing and improved IQ playback controls, refined SDR options/streaming behavior, introduced resettable table defaults with versioned migration logic for EarthView and celestial views, and added transmitter duplication support.
 * **v0.7.3 (2026-06-25):** Improved worker presentation timing for Android WebView, refined Satellites admin UI layout, and enhanced SDR table rendering/port behavior.
@@ -20,7 +21,6 @@ single web interface.
 * **v0.6.0 (2026-06-16):** Added SQLite concurrent-write retry handling, moved auth/session behavior to cookie-backed flows, introduced the Setup Wizard (with location restore and admin setup), and hardened setup/admin-recovery logic.
 * **v0.5.2 (2026-06-12):** Expanded planetarium/target map capabilities (interactive controls, fullscreen, pass handling), and refreshed docs/features descriptions.
 * **v0.5.1 (2026-06-09):** Added dynamic moon-phase visualization and improved tracker-state restoration/cleanup behavior.
-* **v0.5.0 (2026-06-09):** Delivered major earthview/location workflow updates, including location wizard improvements, callsign metadata, and target/map UX refinements.
 
 ## Screenshots
 
